@@ -23,3 +23,13 @@ library(qiime2R)
 physeq <- qza_to_phyloseq(features="table.qza",tree="fasttree-tree-rooted.qza",
                           taxonomy = "taxonomy.qza", metadata = "metadata.tsv")
 
+#see what is in the blank and remove potential contaminants
+#create a negative column 
+sample_data(physeq)$is.neg <- sample_data(physeq)$Sample.Type == "BLANK"
+
+#call contaminants if they exceed 0.5% prevalence
+contamdf.prev05 <- isContaminant(physeq, method="prevalence", neg="is.neg", threshold=0.5)
+table(contamdf.prev05$contaminant)
+
+#prune otus ID'd as contaminants
+physeq_decon <- prune_taxa(contamdf.prev05$contaminant!="TRUE", physeq_noBlank)
