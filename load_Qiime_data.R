@@ -33,3 +33,9 @@ table(contamdf.prev05$contaminant)
 
 #prune otus ID'd as contaminants
 physeq_decon <- prune_taxa(contamdf.prev05$contaminant!="TRUE", physeq_noBlank)
+
+
+
+
+
+
