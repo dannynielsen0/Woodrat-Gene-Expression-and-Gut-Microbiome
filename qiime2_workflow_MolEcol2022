@@ -16,7 +16,7 @@ conda activate qiime2-2021.8 #activate environment within working dir. that has 
  qiime tools import \
   --type "SampleData[PairedEndSequencesWithQuality]" \
   --input-format PairedEndFastqManifestPhred33V2 \
-  --input-path C_manifest.tsv \
+  --input-path caecum_manifest.tsv \
   --output-path qiime_output/demux_seqs.qza
   
 #visualize the above  
@@ -60,7 +60,7 @@ qiime dada2 denoise-paired \
   qiime feature-table summarize \
   --i-table table.qza \
   --o-visualization qiime_output/table.qzv \
-  --m-sample-metadata-file ../caecum_metadata.tsv
+  --m-sample-metadata-file caecum_metadata.tsv
 
 qiime feature-table tabulate-seqs \
   --i-data rep-seqs.qza \
@@ -106,18 +106,16 @@ qiime phylogeny midpoint-root \
 --o-rooted-tree qiime_output/fasttree-tree-rooted.qza
 
   
-#clustering #https://docs.qiime2.org/2021.8/tutorials/otu-clustering/ 
-#de novo clustering
+ #de novo clustering
 
-qiime vsearch cluster-features-de-novo \
---i-table table.qza \
---i-sequences rep-seqs.qza \
---p-perc-identity 0.99 \
---o-clustered-table qiime_output/table-dn-99.qza \
---o-clustered-sequences qiime_output/rep-seqs-dn-99.qza
+	qiime vsearch cluster-features-de-novo \
+		--i-table table.qza \
+		--i-sequences rep-seqs.qza \
+		--p-perc-identity 0.99 \
+		--o-clustered-table qiime_output/table-dn-99.qza \
+		--o-clustered-sequences qiime_output/rep-seqs-dn-99.qza
 
   
-#taxonomy #https://docs.qiime2.org/2021.8/tutorials/moving-pictures/ 
 #download pre-trained Naive Bayes classifier
 
 wget \
@@ -140,7 +138,7 @@ qiime metadata tabulate \
 qiime taxa barplot \
 --i-table table-dn-99.qza \
 --i-taxonomy taxonomy.qza \
---m-metadata-file ../caecum_metadata.tsv \
+--m-metadata-file caecum_metadata.tsv \
 --o-visualization qiime_output/taxa-bar-plots.qzv
   
   
