@@ -14,10 +14,10 @@ conda activate qiime2-2021.8 #activate environment within working dir. that has 
 #we will use the paired end type and input format
 
  qiime tools import \
-  --type "SampleData[PairedEndSequencesWithQuality]" \
-  --input-format PairedEndFastqManifestPhred33V2 \
-  --input-path caecum_manifest.tsv \
-  --output-path qiime_output/demux_seqs.qza
+ --type "SampleData[PairedEndSequencesWithQuality]" \
+ --input-format PairedEndFastqManifestPhred33V2 \
+ --input-path caecum_manifest.tsv \
+ --output-path qiime_output/demux_seqs.qza
   
 #visualize the above  
 qiime demux summarize \
