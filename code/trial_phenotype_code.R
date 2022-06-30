@@ -63,11 +63,11 @@ max_plot <- ggplot(data=max_dose_long_sub_ave, aes(x=Sp_diet , y=MA_dose)) +
   #facet_wrap(~Species) + 
   stat_summary(fun="mean", geom="point", col="red") +
   theme(strip.text.x = element_text(size = 24)) + theme(strip.text = element_text(face = "italic"))+
-  geom_text(data=max_tukey,aes(x=Sp_diet, y=0.75,label=max_tukey$.group),vjust=-0.15) + xlab("Species/Diet") + ylab("Mass Adjusted Max Dose")
+  xlab("Species/Diet") + ylab("Mass Adjusted Max Dose")
 
 max_plot
 
-ggsave(plot=max_plot, "Max_dose.jpg", width = 11, height = 6, device='jpg', dpi=500)
+ggsave(plot=max_plot, "Lab-diet-trial-16S-analysis/figures/Max_dose.jpg", width = 11, height = 6, device='jpg', dpi=500)
 
 
 #reformat water intake data for plotting
@@ -112,218 +112,198 @@ water_plot <- ggplot(data=water_long, aes(x=Dose, y=MA_water)) + geom_boxplot() 
         axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
   theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted water/day") + xlab("% Dose")
 
-
-ggsave(plot=water_plot, "MA_adjusted_water.jpg", width = 12, height = 6, device='jpg', dpi=500)
+#save plot
+ggsave(plot=water_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_water.jpg", width = 12, height = 6, device='jpg', dpi=500)
 
 
 
 
 #reformat food intake data for plotting
 
-food_long <- melt(diet_data, id=c("Diet.","Woodrat_id", "Diet_type", "Species", "Trial", "Sex"), measure="Food_eaten_day") #make long format
-food_long <- aggregate(value ~ Woodrat_id + Diet., FUN=mean, data=food_long) #get average water intake for each woodrat at each dose
+food_long <- melt(diet_data, id=c("Diet_threshold","Woodrat_id", "Diet_type", "Species", "Trial", "Sex", "WR_bm"), measure="Food_eaten_day") #make long format
+names(food_long)[9] <- "Food_intake"
+names(food_long)[1] <- "Dose"
+food_long$MA_food <- food_long$Food_intake/food_long$WR_bm
+food_long <- aggregate(MA_food ~ Woodrat_id + Diet_type + Species + Dose, FUN=mean, data=food_long) #get average water intake for each woodrat at each dose
+food_long <- subset(food_long, food_long$Dose!= "Dose")
 
-#match back the species, sex, and trial data to this new averaged dataset
-food_long$Species <- diet_data$Species[match(food_long$Woodrat_id, diet_data$Woodrat_id)]
-food_long$Sex <- diet_data$Sex[match(food_long$Woodrat_id, diet_data$Woodrat_id)]
-food_long$Trial <- diet_data$Trial[match(food_long$Woodrat_id, diet_data$Woodrat_id)]
-food_long$Diet <- diet_data$Diet_type[match(food_long$Woodrat_id, diet_data$Woodrat_id)]
-
-colnames(food_long)[2:3] <- c("Dose", "Food_intake") #rename columns
-
-
-###Plotting food intake
-
-food_plot <- ggplot(data=food_long, aes(x=Dose, y=Food_intake)) + geom_point() +
-  facet_grid(~Species + Diet) + stat_summary(fun="median", color="red")
-
-#run a model on food
-
-food_model <- aov(Food_intake ~ Dose + Species + Diet + Species*Diet + Error(Sex,Trial), data=food_long)
-food_model <- aov(Food_intake ~ Dose + Species + Diet + Species*Diet, data=food_long)
-
-summary(food_model, type="III")
-
-#mixed effects model food
-
-mod_mm_food <- lmer(Food_intake ~ Dose + Species + Diet + Species*Diet + (1|Trial) + (1|Sex), data=food_long)
-summary(mod_mm_food)
-coef(mod_mm_food)
-
-#plots and tables
-#water
-water_mm_mod_plot <- sjPlot::plot_model(mod_mm, show.values = TRUE, show.p = TRUE)
-water_mm_mod_table <- sjPlot::tab_model(mod_mm)
-save.image(water_mm_mod_table, file="water_mm_table.jpg")
-
-
-#food
-food_mm_mod_plot <- sjPlot::plot_model(mod_mm_food, show.values = TRUE, show.p = TRUE)
-food_mm_mod_table <- sjPlot::tab_model(mod_mm_food)
-
-diet_trial_effectsizes <- ggarrange(water_mm_mod_plot, food_mm_mod_plot, nrow=1)
-ggsave(plot=last_plot(), filename = "effect_sizes.jpg", dpi=500)
-
-
-
-###Individual tracking plots
-
-water_plot <- ggplot(data=diet_data, aes(x=Diet., y=Water_consumed_day, color = Diet_type)) + 
-  geom_line(aes(linetype=Woodrat_id)) +
-  #geom_point()  +
-  facet_wrap(~Species)
-
-water_plot + ggtitle("Water intake") + theme_bw() + theme(panel.grid.minor = element_blank()) + scale_x_continuous(breaks = 1:15)
-
-
-#reformat wheel data intake data for plotting
-
-activity_long <- melt(diet_data, id=c("Diet.", "Diet_threshold","Woodrat_id", "Diet_type", "Species", "Pop", "Trial", "Sex", "WR_bm"), measure="Minutes_active") #make long format
-activity_long$MA_activity <- activity_long$value/activity_long$WR_bm
-activity_long <- aggregate(MA_activity ~ Woodrat_id + Diet_type + Species + Pop + Diet. + Diet_threshold, FUN=mean, data=activity_long) #get average water intake for each woodrat at each dose
-activity_long <- subset(activity_long, activity_long$Diet_threshold != "Dose")
-
-
-#match back the species, sex, and trial data to this new averaged dataset
-activity_long$Species <- diet_data$Species[match(activity_long$Woodrat_id, diet_data$Woodrat_id)]
-activity_long$Pop <- diet_data$Species[match(activity_long$Woodrat_id, diet_data$Woodrat_id)]
-activity_long$Sex <- diet_data$Sex[match(activity_long$Woodrat_id, diet_data$Woodrat_id)]
-activity_long$Trial <- diet_data$Trial[match(activity_long$Woodrat_id, diet_data$Woodrat_id)]
-activity_long$Diet <- diet_data$Diet_type[match(activity_long$Woodrat_id, diet_data$Woodrat_id)]
-activity_long$Woodrat_id <- diet_data$Woodrat_id[match(activity_long$Woodrat_id, diet_data$Woodrat_id)]
-activity_long$Woodrat_id <- diet_data$Woodrat_id[match(activity_long$Woodrat_id, diet_data$Woodrat_id)]
-activity_long$Species_diet_dose <- paste(activity_long$Species, activity_long$Diet_type, activity_long$Diet., sep="_")
-activity_long$Species_diet <- paste(activity_long$Species, activity_long$Diet_type, sep="_")
-activity_long$Species_diet_threshold <- paste(activity_long$Species, activity_long$Diet_type, activity_long$Diet_threshold, sep="_")
-
-
-
-colnames(activity_long)[c(4,6)] <- c("Dose", "activity") #rename columns
-activity_long$Dose[activity_long$Diet_threshold=="Chow"] <- "0" 
+#rename chow to number 0
+food_long$Dose[food_long$Dose=="Chow"] <- "0" 
 
 #reorder variabels for plotting
-activity_long$Species <- factor(activity_long$Species, levels=c("N. lepida", "N. bryanti"))
-activity_long$Diet_type <- factor(activity_long$Diet_type, levels=c("PRFA", "FRCA"))
+food_long$Species <- factor(food_long$Species, levels=c("N. lepida", "N. bryanti"))
+food_long$Diet_type <- factor(food_long$Diet_type, levels=c("PRFA", "FRCA"))
+food_long$Sp_diet <- paste(food_long$Species, food_long$Diet_type, sep="_")
+food_long$Sp_diet <- factor(food_long$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
+food_long$Sp_diet_dose <- paste(food_long$Species, food_long$Diet_type, food_long$Dose, sep="_")
 
-activity_mod_mm <- glmmTMB(MA_activity ~ Species + Diet_type +  Diet_threshold + Species*Diet_type + (1|Woodrat_id), data=activity_long)
-activity_mod_mm <- glmmTMB(activity ~ Species_diet_threshold + (1|Woodrat_id), data=activity_long)
+#conduct statistical analysis for each dietXspecies treatment
+shapiro.test(food_long$MA_food) #W = 0.97403, p-value = 0.2473; normal, justify t.test test for each speciesxdiet treatment group
+bry_prfa <- subset(food_long, food_long$Sp_diet =="N. bryanti_PRFA")
+bry_frca <- subset(food_long, food_long$Sp_diet =="N. bryanti_FRCA")
+lep_prfa <- subset(food_long, food_long$Sp_diet =="N. lepida_PRFA")
+lep_frca <- subset(food_long, food_long$Sp_diet =="N. lepida_FRCA")
 
-summary(activity_mod_mm)
-coef(activity_mod_mm)
-
-qqnorm(log10(activity_long$activity))
-activity_long$activity <- sqrt(activity_long$activity)
-ggdensity(activity_long, x = "activity", fill = "lightgray") +
-  stat_overlay_normal_density(color = "red", linetype = "dashed")
-
-library(emmeans)
-activity_crap_is <- emmeans(activity_mod_mm, ~ Species_diet_threshold)
-activity_tukey <- multcomp::cld(activity_crap_is, alpha=0.05, Letters=letters)
-TukeyHSD(activity_mod_mm)
-
-###Plotting activity
-activity_long$Sp_diet <- paste(activity_long_sub$Species, activity_long$Diet_type, sep="_")
-activity_long$Sp_diet <- factor(activity_long$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
-activity_long$Sp_diet_dose <- paste(activity_long$Species, activity_long$Diet_type, activity_long$Dose, sep="_")
+#perform kruskal test for each
+t.test(MA_food~Dose, data=bry_prfa) #t.test; t = -1.7262, df = 13.316, p-value = 0.1074; no difference in bry
+t.test(MA_food~Dose, data=bry_frca) #t.test; t = -0.40605, df = 11.204, p-value = 0.6924; no difference in bry
+t.test(MA_food~Dose, data=lep_frca) #t = 1.2604, df = 11.662, p-value = 0.2322; df = 1, p-value = 0.7494; no difference in bry
+t.test(MA_food~Dose, data=lep_prfa) #t = -1.7199, df = 11.764, p-value = 0.1116; no difference in bry
 
 
-activity_plot <- ggplot(data=activity_long, aes(x=Species_diet_threshold, y=activity)) + geom_boxplot() + 
-  theme_bw() + #facet_grid(~ Species) +
+food_plot <- ggplot(data=food_long, aes(x=Dose, y=MA_food)) + geom_boxplot() + 
+  theme_bw() + facet_grid(~ Sp_diet) +
   stat_summary(fun="mean", geom="point", col="red") +
   theme(panel.grid.major = element_blank()) + theme(panel.grid = element_blank()) +
   theme(axis.text.x = element_text(size = 20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
-  theme(strip.text = element_text(face = "italic")) + ylab("rotations") + #xlab("% Dose") +
-  theme(axis.text.x=element_text(angle=90,hjust=1)) +
-  geom_text(data=activity_tukey,aes(x=Species_diet_threshold, y=2.2,label=activity_tukey$.group),vjust=-0.15)
+  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted food/day") + xlab("% Dose")
 
-ggsave("rotations.jpg", width = 12, height = 6, device='jpg', dpi=300)
-
-#mixed model for activity with individual (and trial?) as random effect
+#save plot
+ggsave(plot=food_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_food.jpg", width = 12, height = 6, device='jpg', dpi=500)
 
 
 
-stat.test.activity <- ggpubr::compare_means(
-  MA_water ~ Dose, group="Sp_diet",
-  data = water_long_sub, method = "kruskal",
-  p.adjust.method = "none"
-)
-stat.test.water
-
-my_comps <- stat.test.water %>% mutate(y.position=c(0.3, 0.3,0.55,0.35))
 
 
+#reformat wheel data intake data for plotting
 
-water_plot <- ggplot(data=water_long_sub, aes(x=Dose, y=MA_water)) + geom_boxplot() + 
+minutes_long <- melt(diet_data, id=c("Diet_threshold","Woodrat_id", "Diet_type", "Species", "Trial", "Sex", "WR_bm"), measure="Minutes_active") #make long format
+names(minutes_long)[9] <- "minutes_active"
+names(minutes_long)[1] <- "Dose"
+minutes_long$MA_minutes <- minutes_long$minutes_active/minutes_long$WR_bm
+minutes_long <- aggregate(MA_minutes ~ Woodrat_id + Diet_type + Species + Dose, FUN=mean, data=minutes_long) #get average water intake for each woodrat at each dose
+minutes_long <- subset(minutes_long, minutes_long$Dose!= "Dose")
+
+#rename chow to number 0
+minutes_long$Dose[minutes_long$Dose=="Chow"] <- "0" 
+
+#reorder variabels for plotting
+minutes_long$Species <- factor(minutes_long$Species, levels=c("N. lepida", "N. bryanti"))
+minutes_long$Diet_type <- factor(minutes_long$Diet_type, levels=c("PRFA", "FRCA"))
+minutes_long$Sp_diet <- paste(minutes_long$Species, minutes_long$Diet_type, sep="_")
+minutes_long$Sp_diet <- factor(minutes_long$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
+minutes_long$Sp_diet_dose <- paste(minutes_long$Species, minutes_long$Diet_type, minutes_long$Dose, sep="_")
+
+#conduct statistical analysis for each dietXspecies treatment
+shapiro.test(minutes_long$MA_minutes) #W = 0.93062, p-value = 0.002576; not normal, justify kruskal.wallis test for each speciesxdiet treatment group
+bry_prfa <- subset(minutes_long, minutes_long$Sp_diet =="N. bryanti_PRFA")
+bry_frca <- subset(minutes_long, minutes_long$Sp_diet =="N. bryanti_FRCA")
+lep_prfa <- subset(minutes_long, minutes_long$Sp_diet =="N. lepida_PRFA")
+lep_frca <- subset(minutes_long, minutes_long$Sp_diet =="N. lepida_FRCA")
+
+#perform kruskal test for each
+kruskal.test(MA_minutes~Dose, data=bry_prfa) #Kruskal-Wallis chi-squared = 0, df = 1, p-value = 1; no difference in bry
+kruskal.test(MA_minutes~Dose, data=bry_frca) #Kruskal-Wallis chi-squared = 0.10204, df = 1, p-value = 0.7494; no difference in bry
+kruskal.test(MA_minutes~Dose, data=lep_frca) #Kruskal-Wallis chi-squared = 2.9755, df = 1, p-value = 0.08453; no difference in bry
+kruskal.test(MA_minutes~Dose, data=lep_prfa) #Kruskal-Wallis chi-squared = 0.6898, df = 1, p-value = 0.4062; no difference in bry
+
+
+minutes_plot <- ggplot(data=minutes_long, aes(x=Dose, y=MA_minutes)) + geom_boxplot() + 
   theme_bw() + facet_grid(~ Sp_diet) +
+  stat_summary(fun="mean", geom="point", col="red") +
   theme(panel.grid.major = element_blank()) + theme(panel.grid = element_blank()) +
   theme(axis.text.x = element_text(size = 20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
-  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted water/day") + xlab("% Dose") +
-  stat_pvalue_manual(my_comps, label="p.signif") + 
-  stat_summary(fun="mean", geom="point", col="lightgrey")
+  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted minutes/day") + xlab("% Dose")
+
+#save plot
+ggsave(plot=minutes_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_minutes.jpg", width = 12, height = 6, device='jpg', dpi=500)
 
 
-water_plot
-ggsave(plot=water_plot, "MA_adjusted_water.jpg", width = 12, height = 6, device='jpg', dpi=500)
+#reformat wheel data intake data for plotting
+
+rotations_long <- melt(diet_data, id=c("Diet_threshold","Woodrat_id", "Diet_type", "Species", "Trial", "Sex", "WR_bm"), measure="rotations") #make long format
+names(rotations_long)[9] <- "rotations"
+names(rotations_long)[1] <- "Dose"
+rotations_long$MA_rotations <- rotations_long$rotations/rotations_long$WR_bm
+rotations_long <- aggregate(MA_rotations ~ Woodrat_id + Diet_type + Species + Dose, FUN=mean, data=rotations_long) #get average water intake for each woodrat at each dose
+rotations_long <- subset(rotations_long, rotations_long$Dose!= "Dose")
+
+#rename chow to number 0
+rotations_long$Dose[rotations_long$Dose=="Chow"] <- "0" 
+
+#reorder variabels for plotting
+rotations_long$Species <- factor(rotations_long$Species, levels=c("N. lepida", "N. bryanti"))
+rotations_long$Diet_type <- factor(rotations_long$Diet_type, levels=c("PRFA", "FRCA"))
+rotations_long$Sp_diet <- paste(rotations_long$Species, rotations_long$Diet_type, sep="_")
+rotations_long$Sp_diet <- factor(rotations_long$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
+rotations_long$Sp_diet_dose <- paste(rotations_long$Species, rotations_long$Diet_type, rotations_long$Dose, sep="_")
+
+#conduct statistical analysis for each dietXspecies treatment
+shapiro.test(rotations_long$MA_rotations) #W = 0.91212, p-value = 0.0004735; not normal, justify kruskal.wallis test for each speciesxdiet treatment group
+bry_prfa <- subset(rotations_long, rotations_long$Sp_diet =="N. bryanti_PRFA")
+bry_frca <- subset(rotations_long, rotations_long$Sp_diet =="N. bryanti_FRCA")
+lep_prfa <- subset(rotations_long, rotations_long$Sp_diet =="N. lepida_PRFA")
+lep_frca <- subset(rotations_long, rotations_long$Sp_diet =="N. lepida_FRCA")
+
+#perform kruskal test for each
+kruskal.test(MA_rotations~Dose, data=bry_prfa) #Kruskal-Wallis chi-squared = 0.17647, df = 1, p-value = 0.6744; no difference in bry
+kruskal.test(MA_rotations~Dose, data=bry_frca) #Kruskal-Wallis chi-squared = 0.036735, df = 1, p-value = 0.848; no difference in bry
+kruskal.test(MA_rotations~Dose, data=lep_frca) #Kruskal-Wallis chi-squared = 1.4735, df = 1, p-value = 0.2248; no difference in bry
+kruskal.test(MA_rotations~Dose, data=lep_prfa) #Kruskal-Wallis chi-squared = 0.2, df = 1, p-value = 0.6547; no difference in bry
 
 
+rotations_plot <- ggplot(data=rotations_long, aes(x=Dose, y=MA_rotations)) + geom_boxplot() + 
+  theme_bw() + facet_grid(~ Sp_diet) +
+  stat_summary(fun="mean", geom="point", col="red") +
+  theme(panel.grid.major = element_blank()) + theme(panel.grid = element_blank()) +
+  theme(axis.text.x = element_text(size = 20)) +
+  theme(axis.text.y = element_text(size = 20),
+        axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
+  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted rotations/day") + xlab("% Dose")
+
+#save plot
+ggsave(plot=rotations_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_rotations.jpg", width = 12, height = 6, device='jpg', dpi=500)
 
 
+#reformat wheel data intake data for plotting max speed
 
-#run a model on water
-water_long$Dose <- as.factor(water_long$Dose)
-water_long$Species <- as.factor(water_long$Species)
-water_long$Sex <- as.factor(water_long$Sex)
-water_long$Trial <- as.factor(water_long$Trial)
-water_long$Diet <- as.factor(water_long$Diet)
-water_long$Woodrat_id <- as.factor(water_long$Woodrat_id)
-water_long$Diet_type[water_long$Dose=="0"] <- "Chow"
-water_long_sub <- subset(water_long, water_long$Dose != "Dose")
+speed_long <- melt(diet_data, id=c("Diet_threshold","Woodrat_id", "Diet_type", "Species", "Trial", "Sex", "WR_bm"), measure="Max_speed_ms") #make long format
+names(speed_long)[9] <- "speed"
+names(speed_long)[1] <- "Dose"
+speed_long$MA_speed <- speed_long$speed/speed_long$WR_bm
+speed_long <- aggregate(MA_speed ~ Woodrat_id + Diet_type + Species + Dose, FUN=mean, data=speed_long) #get average water intake for each woodrat at each dose
+speed_long <- subset(speed_long, speed_long$Dose!= "Dose")
 
-water_model <- aov(MA_water ~ Species_diet_dose, data=water_long)
+#rename chow to number 0
+speed_long$Dose[speed_long$Dose=="Chow"] <- "0" 
 
-max_crap_is <- emmeans(water_model, ~ Species_diet_dose)
-max_tukey <- multcomp::cld(max_crap_is, alpha=0.05, Letters=letters)
+#reorder variabels for plotting
+speed_long$Species <- factor(speed_long$Species, levels=c("N. lepida", "N. bryanti"))
+speed_long$Diet_type <- factor(speed_long$Diet_type, levels=c("PRFA", "FRCA"))
+speed_long$Sp_diet <- paste(speed_long$Species, speed_long$Diet_type, sep="_")
+speed_long$Sp_diet <- factor(speed_long$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
+speed_long$Sp_diet_dose <- paste(speed_long$Species, speed_long$Diet_type, speed_long$Dose, sep="_")
 
-water_model <- aov(MA_water ~ Dose + Species * Diet_type + WR_bm , data=water_long)
-Anova(water_model, type="III")
+#conduct statistical analysis for each dietXspecies treatment
+shapiro.test(speed_long$MA_speed) #W = 0.91227, p-value = 0.0004797; not normal, justify kruskal.wallis test for each speciesxdiet treatment group
+bry_prfa <- subset(speed_long, speed_long$Sp_diet =="N. bryanti_PRFA")
+bry_frca <- subset(speed_long, speed_long$Sp_diet =="N. bryanti_FRCA")
+lep_prfa <- subset(speed_long, speed_long$Sp_diet =="N. lepida_PRFA")
+lep_frca <- subset(speed_long, speed_long$Sp_diet =="N. lepida_FRCA")
 
-water_model <- lm(Water_intake ~ Dose * Species * Diet_type + Woodrat_id + WR_bm, data=water_long)
-wilcox.test(MA_water ~ Dose, paired=TRUE, data=water_long)
-
-summary(water_model)
-coef(water_model)
-TukeyHSD(water_model, which="Sp_diet_dose")
-
-
-water_lin_model <- lm(Water_intake ~ Dose + Species + Diet_type + Species*Diet_type + Woodrat_id, data=water_long)
-summary(water_lin_model)
-
-water_anova <- nlme::lme(MA_water ~ Dose + Species + Diet_type + Species*Diet_type, random = ~ 1|Woodrat_id, data = water_long, method = "REML")
-#repeated measures anova
-summary(water_anova)
-
-TukeyHSD(water_anova)
+#perform kruskal test for each
+kruskal.test(MA_speed~Dose, data=bry_prfa) #Kruskal-Wallis chi-squared = 0.099265, df = 1, p-value = 0.7527, df = 1, p-value = 0.6744; no difference in bry
+kruskal.test(MA_speed~Dose, data=bry_frca) #Kruskal-Wallis chi-squared = 0.6898, df = 1, p-value = 0.4062, df = 1, p-value = 0.848; no difference in bry
+kruskal.test(MA_speed~Dose, data=lep_frca) #Kruskal-Wallis chi-squared = 0.49388, df = 1, p-value = 0.4822, df = 1, p-value = 0.2248; no difference in bry
+kruskal.test(MA_speed~Dose, data=lep_prfa) #Kruskal-Wallis chi-squared = 0.91837, df = 1, p-value = 0.3379; no difference in bry
 
 
-#mixed effects model to include trial as a random effect
+speed_plot <- ggplot(data=speed_long, aes(x=Dose, y=MA_speed)) + geom_boxplot() + 
+  theme_bw() + facet_grid(~ Sp_diet) +
+  stat_summary(fun="mean", geom="point", col="red") +
+  theme(panel.grid.major = element_blank()) + theme(panel.grid = element_blank()) +
+  theme(axis.text.x = element_text(size = 20)) +
+  theme(axis.text.y = element_text(size = 20),
+        axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
+  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted max m/s") + xlab("% Dose")
 
-qqnorm(water_long$MA_water)
-shapiro.test(water_long$ma_water_sqrt)
-water_long_sub$ma_water_sqrt <- sqrt(water_long_sub$MA_water)
+#save plot
+ggsave(plot=speed_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_speed.jpg", width = 12, height = 6, device='jpg', dpi=500)
 
-mod_mm <- lmer(MA_water ~ Dose + Species * Diet + (1|Trial) + (1|Woodrat_id), data=water_long_sub)
-mod_mm <- lmer(MA_water ~ Sp_diet_dose + (1|Trial) + (1|Woodrat_id), data=water_long_sub)
-
-drop1(mod_mm,test = "Chisq") #likelihood ratio test
-
-mod_mm <- lmer(Water_intake ~ Dose * Species * Diet + (1|Trial) + (1|Sex), data=water_long)
-
-summary(mod_mm)
-coef(mod_mm)
 
 
 
