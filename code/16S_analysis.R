@@ -111,11 +111,11 @@ distmat_unifrac <- phyloseq::distance(physeq_RRA, method="unifrac") #use bray he
 distmat_wunifrac <- phyloseq::distance(physeq_RRA, method="wunifrac") #use bray here. note, the :: tells R to use the phyloseq distance function
 
 #run the analyses
-permanova_bray <- adonis2(distmat_bray ~ Species + Diet_treatment + Species*Diet_treatment, data=perm_metadata, permutations = 999)
-permanova_unifrac <- adonis2(distmat_unifrac ~ Species + Diet_treatment + Species*Diet_treatment, data=perm_metadata, permutations = 999)
-permanova_wunifrac <- adonis2(distmat_wunifrac ~ Species + Diet_treatment + Species*Diet_treatment, data=perm_metadata, permutations = 999)
+permanova_bray <- adonis2(distmat_bray ~ Species + Diet_treatment + Sex + Species*Diet_treatment, data=perm_metadata, permutations = 999)
+permanova_unifrac <- adonis2(distmat_unifrac ~ Species + Diet_treatment + Sex + Species*Diet_treatment, data=perm_metadata, permutations = 999)
+permanova_wunifrac <- adonis2(distmat_wunifrac ~ Species + Diet_treatment + Sex + Species*Diet_treatment, data=perm_metadata, permutations = 999)
 
-
-
-print(permanova_bray)
+permanova_bray
+permanova_unifrac
+permanova_wunifrac
 
