@@ -148,6 +148,11 @@ permanova_unifrac <- adonis2(distmat_unifrac ~ Species + Diet_treatment + Sex + 
 permanova_wunifrac <- adonis2(distmat_wunifrac ~ Species + Diet_treatment + Sex + Species*Diet_treatment, data=perm_metadata, permutations = 999)
 
 permanova_bray
+write.table(permanova_bray, "../Lab-diet-trial-16S-analysis/figures/bray_permanova.txt", sep= "\t")
+
 permanova_unifrac
+write.table(permanova_unifrac, "../Lab-diet-trial-16S-analysis/figures/unifrac_permanova.txt", sep= "\t")
+
 permanova_wunifrac
+write.table(permanova_wunifrac, "../Lab-diet-trial-16S-analysis/figures/weighted_unifrac_permanova.txt", sep= "\t")
 
