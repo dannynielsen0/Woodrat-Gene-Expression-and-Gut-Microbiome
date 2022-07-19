@@ -11,6 +11,7 @@ library(RSQLite)
 install.packages("BiocManager")
 library(BiocManager)
 BiocManager::install("WGCNA", force = TRUE)
+install.packages("WGCNA")
 
 library("ape")          # read tree file
 library("Biostrings")   # read fasta file
@@ -29,6 +30,16 @@ library(ggforce)
 load("DE_gene_microbe_counts.rdata")
 gene_microbe_counts
 
+#the program automatically puts an "X" in front of any feature ID that started with a number, 
+#this is problem for matching microbial feature names, so we need to undo that!
+gene_module_key[1:65,]$feature <- gsub("X", "", gene_module_key[1:65,]$feature)
+colnames(gene_microbe_counts[,1:20]) <- gsub("X", "", colnames(gene_microbe_counts[,1:20]))
+
+#just genes
+just_genes <- gene_microbe_counts[,21:65]
+#just microbes
+just_microbes <- gene_microbe_counts[,1:20]
+
 #load the sample metadata
 load("df_gene_microbe.rdata")
 df
@@ -36,7 +47,7 @@ df
 #load physeq data
 load("physeq_C.rdata")
 
-
+gene_microbe_counts <- just_genes
 #check for excessive missing values and remove outliers
 #check for features with too many missing values
 gsg = goodSamplesGenes(gene_microbe_counts, verbose = 3)
@@ -63,7 +74,7 @@ gene_microbe_counts_clean <- gene_microbiome_counts_clean[, i]
 
 #check for outlier samples and remove
 
-sampleTree = hclust(dist(gene_microbe_counts_clean), method = "average");
+sampleTree = hclust(dist(gene_microbe_counts), method = "average");
 # Plot the sample tree: Open a graphic output window of size 12 by 9 inches
 # The user should change the dimensions if the window is too large or too small.
 sizeGrWindow(12,9)
@@ -95,6 +106,7 @@ gene_microbe_counts_norm <- varianceStabilizingTransformation(dds)
 norm_counts <- assay(gene_microbe_counts_norm) %>% 
   t()
 
+norm_counts <- as.numeric(just_genes)
 
 ###set up the WGCNA 
 
@@ -102,19 +114,21 @@ allowWGCNAThreads()
 
 power <- c(c(1:10), seq(from=12, to=30, by=2)) # soft-threshold powers to inspect
 
-sft<- pickSoftThreshold(norm_counts, powerVector = power, verbose = ) #call network topology function
+sft<- pickSoftThreshold(norm_counts, powerVector = power, verbose = TRUE) #call network topology function
 
 #plot the results and inspect power
-
 plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],xlab="SFT (power)", 
      ylab="Scale Free Topology Model Fit, signed R^2", type="n", main=paste("Scale independence")) +
   text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],labels=power, col="purple")
 
 #based on this - use power of 5
 
+#this overrides a cor function from another package that conflicts with the cor function in WGCNA
+cor <- WGCNA::cor
+
 #construct network and detect modules
-network1 <- blockwiseModules(norm_counts, power= 5,
-                             TOMType = "unsigned", minModuleSize = 3,
+network1 <- WGCNA::blockwiseModules(norm_counts, power= 6,
+                             TOMType = "unsigned", minModuleSize = 3, #signed type finds of positively correlated relationships
                              reassignThreshold = 0, mergeCutHeight = 0.25,
                              numericLabels = TRUE, pamRespectsDendro = FALSE,
                              saveTOMs = TRUE,
@@ -148,7 +162,7 @@ plotDendroAndColors(network1$dendrograms[[1]],
 
 par(cex=1.0)
 
-plotEigengeneNetworks(MEs, "Eigengene heatmap",marHeatmap = c(0,4,1,0),
+plotEigengeneNetworks(MEs, "Eigengene heatmap",marHeatmap = c(3,4,2,2),
                       plotDendrograms = FALSE)
 
 plotEigengeneNetworks(MEs, "Eigengene dendrogram", marHeatmap  = c(0,4,1,0),
@@ -195,7 +209,7 @@ mod_plot <- ggplot(
   module_ME1,
   aes(
     x = species_diet,
-    y = ME4,
+    y = ME1,
     color = species_diet
   )
 ) +
@@ -222,10 +236,6 @@ tax_df$p_c_f_g <- paste(tax_df$Phylum, tax_df$Class, tax_df$Family, tax_df$Genus
 gene_module_key <- tibble::enframe(network1$colors, name = "feature", value = "module") %>%
   # Let's add the `ME` part so its more clear what these numbers are and it matches elsewhere
   dplyr::mutate(module = paste0("ME", module))
-
-#the program automatically puts an "X" in front of any feature ID that started with a number, 
-#this is problem for matching microbial feature names, so we need to undo that!
-gene_module_key[1:65,]$feature <- gsub("X", "", gene_module_key[1:65,]$feature)
 
 
 #use match to get our taxa names
