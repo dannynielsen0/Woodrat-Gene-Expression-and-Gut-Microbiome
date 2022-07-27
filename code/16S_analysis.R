@@ -48,20 +48,25 @@ pSeqDepth
 
 physeq_C@sam_data$PD <- estimate_pd(physeq_C) #uses the btools package
 
+
 #Then plot using wilcox test for differences in diversity between groups - plot both PD & richness
-PD_div_box_plot <- ggplot(data=physeq_C@sam_data, aes(x=physeq_C@sam_data$Diet_treatment,y=physeq_C@sam_data$PD$PD)) +
+PD_div_box_plot <- ggplot(data=physeq_C@sam_data, aes(x=physeq_C@sam_data$Diet_treatment,y=physeq_C@sam_data$PD$SR)) +
   geom_boxplot() + facet_wrap(~physeq_C@sam_data$Species) + geom_jitter() + stat_n_text() + theme_bw() +
-  geom_signif(test = "wilcox.test", y_position = 13, map_signif_level = TRUE, comparisons = list(c("PRFA", "FRCA"))) +
-  ylab("Phylogenetic Diversity") + xlab("Diet Treatment") +
-  theme(strip.text.x = element_text(size = 18)) + theme(strip.text = element_text(face = "italic")) +
+  geom_signif(test = "wilcox.test", y_position = 250, map_signif_level = TRUE, comparisons = list(c("PRFA", "FRCA"))) +
+  ylab("Microbial Richness") + xlab("Diet Treatment") +
+  theme(plot.title = element_text(hjust = 0.5, size = 24)) + 
+  theme(legend.text = element_text(size = 20, face = "italic")) +
+  theme(legend.title = element_text(size=20)) +
+  theme(strip.text.x = element_text(size = 20)) + theme(strip.text = element_text(face = "italic")) +
   theme(axis.text.x = element_text(size = 20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20))
 
+
 PD_div_box_plot
 
 #save plot
-ggsave(plot=PD_div_box_plot, "../Lab-diet-trial-16S-analysis/figures/Faiths_PD.jpg", width = 10, height =8 , device='jpg', dpi=500)
+ggsave(plot=PD_div_box_plot, "../Lab-diet-trial-16S-analysis/figures/microbial_richness.jpg", width = 10, height =8 , device='jpg', dpi=500)
 
 
 #convert to RRA 
@@ -84,8 +89,10 @@ PCoA_plot_bray <- plot_ordination(physeq_RRA, PCoA_bray, color = "Species", shap
 plot_bray <- PCoA_plot_bray + geom_point(size = 5) +
   scale_color_manual(values= c("maroon","forestgreen")) + #facet_wrap(~Species) +
   scale_shape_manual(values=c(16,2)) + theme_bw()+ ggtitle("Bray-Curtis") +
-  theme(plot.title = element_text(hjust = 0.5, size = 24)) +
-  theme(strip.text.x = element_text(size = 18)) + theme(strip.text = element_text(face = "italic")) +
+  theme(plot.title = element_text(hjust = 0.5, size = 24)) + 
+  theme(legend.text = element_text(size = 20, face = "italic")) +
+  theme(legend.title = element_text(size=20)) +
+  theme(strip.text.x = element_text(size = 20)) + theme(strip.text = element_text(face = "italic")) +
   theme(axis.text.x = element_text(size = 20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20))
@@ -102,9 +109,11 @@ PCoA_plot_wunifrac <- plot_ordination(physeq_RRA, PCoA_wunifrac, color = "Specie
 
 plot_wunifrac <- PCoA_plot_wunifrac + geom_point(size = 5) +
   scale_color_manual(values= c("maroon","forestgreen")) + #facet_wrap(~Species) +
-  scale_shape_manual(values=c(16,2)) + theme_bw() + ggtitle("Weighted Unifrac") +
-  theme(plot.title = element_text(hjust = 0.5, size = 24)) +
-  theme(strip.text.x = element_text(size = 18)) + theme(strip.text = element_text(face = "italic")) +
+  scale_shape_manual(values=c(16,2)) + theme_bw() + ggtitle("Weighted UniFrac") +
+  theme(plot.title = element_text(hjust = 0.5, size = 24)) + 
+  theme(legend.text = element_text(size = 20, face = "italic")) +
+  theme(legend.title = element_text(size=20)) +
+  theme(strip.text.x = element_text(size = 20)) + theme(strip.text = element_text(face = "italic")) +
   theme(axis.text.x = element_text(size = 20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20))
@@ -120,9 +129,11 @@ PCoA_plot_unifrac <- plot_ordination(physeq_RRA, PCoA_unifrac, color = "Species"
 
 plot_unifrac <- PCoA_plot_unifrac + geom_point(size = 5) +
   scale_color_manual(values= c("maroon","forestgreen")) + #facet_wrap(~Species) +
-  scale_shape_manual(values=c(16,2)) + theme_bw() + ggtitle("Unifrac") +
-  theme(plot.title = element_text(hjust = 0.5, size = 24)) +
-  theme(strip.text.x = element_text(size = 18)) + theme(strip.text = element_text(face = "italic")) +
+  scale_shape_manual(values=c(16,2)) + theme_bw() + ggtitle("Unweighted UniFrac") +
+  theme(plot.title = element_text(hjust = 0.5, size = 24)) + 
+  theme(legend.text = element_text(size = 20, face = "italic")) +
+  theme(legend.title = element_text(size=20)) +
+  theme(strip.text.x = element_text(size = 20)) + theme(strip.text = element_text(face = "italic")) +
   theme(axis.text.x = element_text(size = 20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20))
