@@ -16,6 +16,7 @@ physeq <- physeq_C
 #rename to WR_species so it doesn't conflict below
 names(physeq@sam_data)[names(physeq@sam_data) == 'Species'] <- 'WR_species'
 
+sum(sample_sums(physeq)) #total number of reads 245546 across 3396 otus
 
 
 ##Rarefy?
@@ -31,7 +32,7 @@ physeq@sam_data$Diet_treatment <- as.factor(physeq@sam_data$Diet_treatment)
 
 
 #make a taxonomic rank that includes both family and genus - this will help when visualizing later
-Fam_Genus_species <- paste(tax_table(physeq)[ ,"Family"],tax_table(physeq)[ ,"Genus"], tax_table(physeq)[,"Species"], sep = "_")
+Fam_Genus_species <- paste(tax_table(physeq)[ ,"Class"], tax_table(physeq)[ ,"Family"],tax_table(physeq)[ ,"Genus"], tax_table(physeq)[,"Species"], sep = "_")
 tax_table(physeq) <- cbind(tax_table(physeq), Fam_Genus_species)
 
 
@@ -73,12 +74,16 @@ sigtab$Phylum = factor(as.character(sigtab$Phylum), levels=names(x))
 x = tapply(sigtab$log2FoldChange, sigtab$Fam_Genus_species, function(x) max(x))
 x = sort(x, TRUE)
 sigtab$Fam_Genus_species = factor(as.character(sigtab$Fam_Genus_species), levels=names(x))
-
+#20 total DE OTUs 
 
 #then plot results
 diff_abund_plot <- ggplot(sigtab, aes(x=Fam_Genus_species, y=log2FoldChange, color=Phylum)) + geom_point(size=6) + 
   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5)) + coord_flip() +
-  theme(axis.text.x = element_text(size = 20)) +
+  geom_hline(yintercept = 0, linetype="dashed", 
+             color = "black", size=1.0) + 
+  annotate("text", x = 10, y=-10, label = "FRCA",size = unit(14, "pt")) +
+  annotate("text", x = 10, y=10, label = "PRFA",size = unit(14, "pt")) +
+  theme(axis.text.x = element_text(size = 20)) + xlab("Taxa") +
   theme(legend.position="bottom", legend.title=element_text(size=20), legend.text=element_text(size=20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24))
@@ -139,7 +144,11 @@ sigtab_bry$Fam_Genus_species = factor(as.character(sigtab_bry$Fam_Genus_species)
 #then plot results
 diff_abund_bry_plot <- ggplot(sigtab_bry, aes(x=Fam_Genus_species, y=log2FoldChange, color=Phylum)) + geom_point(size=6) + 
   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5)) + coord_flip() +
-  theme(axis.text.x = element_text(size = 20)) +
+  theme(axis.text.x = element_text(size = 20)) + xlab("Taxa") +
+  geom_hline(yintercept = 0, linetype="dashed", 
+             color = "black", size=1.0) + 
+  annotate("text", x = 2.5, y=10, label = "FRCA",size = unit(14, "pt")) +
+  annotate("text", x = 2.5, y=-10, label = "PRFA",size = unit(14, "pt")) +
   theme(legend.position="bottom", legend.title=element_text(size=20), legend.text=element_text(size=20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24))
@@ -154,8 +163,15 @@ ggsave(plot=diff_abund_bry_plot, "../Lab-diet-trial-16S-analysis/figures/bry_des
 
 physeq_bry <- transform_sample_counts(physeq_bry, function(x) x/sum(x))
 
-unit <- subset_taxa(physeq_bry, Fam_Genus_species == "Lachnospiraceae_Coprococcus_NA")
+unit <- subset_taxa(physeq, Family == "S24-7")
 
-plot_bar(unit) + facet_wrap(~ Diet_treatment)
+plot_bar(unit) + facet_wrap(~ WR_species +Diet_treatment)
+
+#save diff expressed microbes to data for WGCNA analysis
+
+sigtab$otu <- rownames(sigtab) #add the otu name for the list below, we will match this for WGCNA
+
+write.table(sigtab$otu, "DESeq_lep_diet.tsv", sep="\t")
+
 
 
