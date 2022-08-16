@@ -51,11 +51,12 @@ rownames(physeq_C_family@otu_table) <- tax_Df$Family[match(rownames(physeq_C_fam
 #construct the deseq object
 dds = phyloseq_to_deseq2(physeq_C_family, ~0 + sp_diet)
 
+vsd <- varianceStabilizingTransformation(dds, blind=FALSE)
 
 
 
 # perform a PCA on the data in assay(x) for the selected genes
-CEN = scale(assay(dds), center = T, scale = T)
+CEN = scale(assay(vsd), center = T, scale = T)
 pca <- prcomp(t(CEN))
 loadings <- as.data.frame(pca$rotation)
 

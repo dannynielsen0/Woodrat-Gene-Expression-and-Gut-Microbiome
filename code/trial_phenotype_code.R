@@ -22,9 +22,15 @@ diet_data$Day_of_trial <- as.factor(diet_data$Day_of_trial)
 max_dose_long <- melt(diet_data, id=c("Diet_threshold","Woodrat_id", "Diet_type", "Diet_perc", "Species", "Pop", "Trial", "Sex", "WR_bm"), measure="mass.adjusted_dose") #make long format
 colnames(max_dose_long)[c(1,11)] <- c("Dose", "MA_dose") #rename columns
 max_dose_long$Dose[max_dose_long$Dose=="Chow"] <- "0" 
+max_dose_long <- aggregate(MA_dose ~ Woodrat_id + Diet_type + Species + Dose, FUN=mean, data=max_dose_long)
+
 
 #subset to just 0% and max dose
 max_dose_long_sub <- subset(max_dose_long, max_dose_long$Dose == "Max" | max_dose_long$Dose=="0")
+#save mox_dose_long_sub
+max_dose_long_sub <- subset(max_dose_long_sub, max_dose_long_sub$Dose == "Max")
+write.table(max_dose_long_sub, "data/MA_maxDose.txt", sep="\t")
+
 #then average over treatment groups
 max_dose_long_sub_ave <- aggregate(Diet_perc~ Woodrat_id + Diet_type + Species, FUN=mean, data=max_dose_long_sub) #get average water intake for each woodrat at each dose
 max_dose_long_sub_ave_bm <- aggregate(WR_bm~ Woodrat_id, FUN=mean, data=max_dose_long_sub) #get average body mass for each woodrat
@@ -81,6 +87,12 @@ water_long <- subset(water_long, water_long$Dose!= "Dose")
 
 #rename chow to number 0
 water_long$Dose[water_long$Dose=="Chow"] <- "0" 
+
+###
+#save only max dose
+water_long <- subset(water_long, water_long$Dose == "Max")
+write.table(water_long, "data/MA_maxWater_txt", sep="\t")
+###
 
 #reorder variabels for plotting
 water_long$Species <- factor(water_long$Species, levels=c("N. lepida", "N. bryanti"))
@@ -178,6 +190,10 @@ minutes_long <- subset(minutes_long, minutes_long$Dose!= "Dose")
 
 #rename chow to number 0
 minutes_long$Dose[minutes_long$Dose=="Chow"] <- "0" 
+
+#save only max minutes
+minutes_long <- subset(minutes_long, minutes_long$Dose == "Max")
+write.table(minutes_long, "data/MA_maxMinutes_txt", sep="\t")
 
 #reorder variabels for plotting
 minutes_long$Species <- factor(minutes_long$Species, levels=c("N. lepida", "N. bryanti"))

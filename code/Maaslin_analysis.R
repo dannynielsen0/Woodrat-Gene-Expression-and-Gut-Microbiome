@@ -31,7 +31,7 @@ fit_data = Maaslin2(
   input_data = input_data, 
   input_metadata = meta_lep, 
   output = "Maaslin_output/lepida", 
-  fixed_effects = c("MA_maxWater", "MA_maxDose", "MA_maxMinutes"))
+  fixed_effects = c("Diet_treatment", "MA_maxWater", "MA_maxDose", "MA_maxMinutes"))
 
 #for bryanti
 fit_data = Maaslin2(

@@ -30,10 +30,9 @@ library(ggforce)
 load("DE_gene_microbe_counts.rdata")
 gene_microbe_counts
 
-#the program automatically puts an "X" in front of any feature ID that started with a number, 
-#this is problem for matching microbial feature names, so we need to undo that!
-gene_module_key[1:65,]$feature <- gsub("X", "", gene_module_key[1:65,]$feature)
-colnames(gene_microbe_counts[,1:20]) <- gsub("X", "", colnames(gene_microbe_counts[,1:20]))
+#load the entire 363 DE genes
+load("SxD_DE_caecum_genes.RData")
+input_data <- input_data[order(rownames(input_data)),]
 
 #just genes
 just_genes <- gene_microbe_counts[,21:65]
@@ -42,12 +41,11 @@ just_microbes <- gene_microbe_counts[,1:20]
 
 #load the sample metadata
 load("df_gene_microbe.rdata")
-df
+df <- df[order(rownames(df)),]
 
 #load physeq data
 load("physeq_C.rdata")
 
-gene_microbe_counts <- just_genes
 #check for excessive missing values and remove outliers
 #check for features with too many missing values
 gsg = goodSamplesGenes(gene_microbe_counts, verbose = 3)
@@ -93,20 +91,23 @@ df_clean <- df[row.names(df) != "S023381", , drop = FALSE]
 
 ###DONE WITH CLEAN UP###
 
+#use the 367 dataset
+just_genes <- input_data
+
 #make a DESeq object to normalize below
 dds <- DESeqDataSetFromMatrix (
-  countData = t(gene_microbe_counts_clean),
-  colData = df_clean,
+  countData = t(just_genes),
+  colData = df,
   design = ~1)
 
 #normalize
-gene_microbe_counts_norm <- dds
+norm_counts <- assay(dds) %>% t()
+norm_counts[1:29, 1:45] <- as.numeric(norm_counts[1:29, 1:45])
 
-gene_microbe_counts_norm <- varianceStabilizingTransformation(dds)
-norm_counts <- assay(gene_microbe_counts_norm) %>% 
-  t()
+#gene_microbe_counts_norm <- varianceStabilizingTransformation(dds)
+#norm_counts <- assay(gene_microbe_counts_norm) %>% 
+  #t()
 
-norm_counts <- as.numeric(just_genes)
 
 ###set up the WGCNA 
 
@@ -116,19 +117,19 @@ power <- c(c(1:10), seq(from=12, to=30, by=2)) # soft-threshold powers to inspec
 
 sft<- pickSoftThreshold(norm_counts, powerVector = power, verbose = TRUE) #call network topology function
 
-#plot the results and inspect power
+#plot the results and inspect power - use 12
 plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],xlab="SFT (power)", 
      ylab="Scale Free Topology Model Fit, signed R^2", type="n", main=paste("Scale independence")) +
   text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],labels=power, col="purple")
 
-#based on this - use power of 5
+#based on this - use power of 12
 
 #this overrides a cor function from another package that conflicts with the cor function in WGCNA
 cor <- WGCNA::cor
 
 #construct network and detect modules
-network1 <- WGCNA::blockwiseModules(norm_counts, power= 6,
-                             TOMType = "unsigned", minModuleSize = 3, #signed type finds of positively correlated relationships
+network1 <- WGCNA::blockwiseModules(norm_counts, power= 12,
+                             TOMType = "signed", minModuleSize = 5, #signed type finds of positively correlated relationships
                              reassignThreshold = 0, mergeCutHeight = 0.25,
                              numericLabels = TRUE, pamRespectsDendro = FALSE,
                              saveTOMs = TRUE,
@@ -136,8 +137,10 @@ network1 <- WGCNA::blockwiseModules(norm_counts, power= 6,
                              saveTOMFileBase = "/Users/dannynielsen/Desktop/lab_trials_16S",
                              verbose=3)
 
-#inspect number of modules (top row) detected, and number of nodes (botton row) in each
+#inspect number of modules (top row) detected, and number of nodes (bottom row) in each
 table(network1$colors)
+summary(network1$colors)
+
 
 #save module assignments and eigengene (ME) info for next steps
 
@@ -174,6 +177,8 @@ module_eigengenes <- network1$MEs
 
 head(module_eigengenes)
 
+df_clean <- df
+
 #chck out some treatment effects
 all.equal(df_clean$sampleID, rownames(module_eigengenes)) #check that rows are same between metadata and modules
 
@@ -184,62 +189,63 @@ df_clean$species_diet <- paste(df_clean$Species, df_clean$Diet_treatment, sep = 
 #create a design matrix using this new variable
 des_mat <- model.matrix(~ df_clean$species_diet)
 
-#run linear models on these, needs transposed version of matrix
+#run linear models on these to look at relative expression levels, needs transposed version of matrix
+#using methods from:
+#https://alexslemonade.github.io/refinebio-examples/04-advanced-topics/network-analysis_rnaseq_01_wgcna.html
 
-fit <- limma::lmFit(t(module_eigengenes), design = des_mat) #run the models
+fit <- limma::lmFit(t(MEs), design = des_mat) #run the models
 fit <- limma::eBayes(fit) #empircal Bayes to smooth standard errors
 
 
-stats_df <- limma::topTable(fit, number=ncol(module_eigengenes)) %>%
+stats_df <- limma::topTable(fit, number=ncol(MEs)) %>%
   tibble::rownames_to_column("module")
 
 head(stats_df)
 
-module_ME1 <- module_eigengenes %>%
+module_ME1 <- MEs %>%
   tibble::rownames_to_column("sampleID") %>%
   
   dplyr::inner_join(df_clean %>%
                       dplyr::select(sampleID, species_diet),
                     by = c("sampleID" = "sampleID"))
 
+mod_long <- melt(data=module_ME1[,c(13,2:12)])
+
+mod_long <- subset(mod_long, mod_long$variable!="MEgrey")
 
 #plot these results
 
+
 mod_plot <- ggplot(
-  module_ME1,
-  aes(
-    x = species_diet,
-    y = ME1,
-    color = species_diet
-  )
-) +
+  mod_long,
+  aes(x=species_diet, y = value, fill=variable)) +
   # a boxplot with outlier points hidden (they will be in the sina plot)
-  geom_boxplot(width = 0.2, outlier.shape = NA) +
+  geom_boxplot(outlier.shape = NA) + #coord_flip() +
   # A sina plot to show all of the individual data points
-  ggforce::geom_sina(maxwidth = 0.3) +
-  theme_classic() + ggtitle ("Module 4")
+  #ggforce::geom_sina(maxwidth = 0.3) + 
+  ylab("Expression Level") + xlab("") + ylim(-0.4,0.4) +
+  theme_bw() + scale_fill_manual(values= c("pink", "green", "red", "magenta", "blue",
+                                      "brown", "purple", "yellow", "black", "turquoise")) +
+  theme(plot.title = element_text(size=22)) +
+  theme(axis.text.x = element_text(size = 20, angle = 45, vjust = 1, hjust=1)) +
+  theme(axis.text.y = element_text(size = 20),
+        axis.title=element_text(size=20)) + 
+  theme(strip.text.x = element_text(size = 20)) +
+  theme(legend.text = element_text(size = 20), legend.title=element_text(size=20)) +
+  guides(fill=guide_legend(title="Module"))
 
-ggsave(plot=mod_plot, "../Lab-diet-trial-16S-analysis/figures/WGCNA_module4.jpg", width = 8, height =8 , device='jpg', dpi=500)
+
+ggsave(plot=mod_plot, "../Lab-diet-trial-16S-analysis/figures/modules_grouped_boxplot.jpg", width = 12, height =8 , device='jpg', dpi=500)
 
 
-###What features make up this module?
-#We can use this to explore any of the modules, by their number
-
-##add the microbial taxa names to the module
-#make tax table a df
-tax_df <- data.frame(physeq_C@tax_table, check.names = FALSE)
-tax_df$OTU <- rownames(tax_df)
-#make a joined phyla, class, family 
-tax_df$p_c_f_g <- paste(tax_df$Phylum, tax_df$Class, tax_df$Family, tax_df$Genus, sep ="_")
 
 #make a key that now has this info
 gene_module_key <- tibble::enframe(network1$colors, name = "feature", value = "module") %>%
   # Let's add the `ME` part so its more clear what these numbers are and it matches elsewhere
   dplyr::mutate(module = paste0("ME", module))
 
-
-#use match to get our taxa names
-gene_module_key$microbial_taxa <- tax_df$p_c_f_g[match(gene_module_key$feature, tax_df$OTU)]
+gene_module_key <- gene_module_key[order(gene_module_key$module),]
+write.csv(gene_module_key, "network_modules.csv")
 
 
 #we can now extract information for any module of interest
@@ -255,5 +261,194 @@ module3_features <- gene_module_key %>%
 module4_features <- gene_module_key %>%
   dplyr::filter(module == "ME4")
 
+module5_features <- gene_module_key %>%
+  dplyr::filter(module == "ME5")
+
+module6_features <- gene_module_key %>%
+  dplyr::filter(module == "ME6")
+
+module7_features <- gene_module_key %>%
+  dplyr::filter(module == "ME7")
+
+module8_features <- gene_module_key %>%
+  dplyr::filter(module == "ME8")
+
+module9_features <- gene_module_key %>%
+  dplyr::filter(module == "ME9")
+
+module10_features <- gene_module_key %>%
+  dplyr::filter(module == "ME10")
 
 
+ggplot(data=gene_microbe_counts, aes(x=NBRY_ANXA1_0001, y=NBRY_BNIP3_0001)) +
+  geom_point() + ggtitle("Same Module")
+
+ggplot(data=gene_microbe_counts, aes(x=NBRY_CYP3A11_0004, y=NBRY_SLC10A2_0001)) +
+  geom_point() + ggtitle("Neg. correlated modules")
+
+
+#get the biological data - i.e., microbe counts
+biol <- t(just_microbes)
+
+#subset to just N. lepida on FRCA
+df_lep_frca <- subset(df, df$Species =="N. lepida")
+
+biol_lep_frca <- data.frame(t(biol[,1:29]))
+biol_lep_frca$samID <- rownames(biol_lep_frca)
+
+#sort order of biol_lep by numeric
+biol_lep_frca <- biol_lep_frca[order(biol_lep_frca$samID),]
+
+
+biol_lep_frca <- subset(biol_lep_frca, biol_lep_frca$samID %in% df_lep_frca$sampleID)
+biol_lep_frca <- biol_lep_frca[1:14,]
+biol_lep_frca <- t(biol_lep_frca[,1:20])#this should work now for the corr. matrix below
+
+
+rownames(biol_lep_frca) <- gsub("X", "", rownames(biol_lep_frca))#need to remove the X
+biol_lep_frca <- data.frame(unlist(biol_lep_frca))
+biol_lep_frca <- biol_lep_frca[,1:14]
+
+#get microbe taxa
+tax_df <- data.frame(physeq_C@tax_table, check.names = FALSE)
+#make a joined phyla, class, family 
+tax_df$p_g <- paste(tax_df$Phylum, tax_df$Genus, sep ="_")
+
+#get taxa
+biol_lep_frca$microbial_taxa <- tax_df$p_g[match(rownames(biol_lep_frca), rownames(tax_df))]
+
+
+#cut MEs down to same lepida only
+MEs_lep_frca <- MEs[rownames(MEs) %in% colnames(biol_lep_frca),]
+MEs_lep_frca <- MEs_lep_frca[,1:10] #remove the grey 'module', which is the 11th module
+
+#make nGenes and NSamples variables to match the lep only data
+nGenes = ncol(just_genes)
+nSamples = 14
+
+
+#module to biological data 
+moduleCor_frca = cor(MEs_lep_frca, t(biol_lep_frca[,1:14]), use = "p");
+
+modulePvalue_frca = corPvalueStudent(moduleCor_frca, nSamples);
+textMatrix = paste(signif(moduleCor_frca, 2), "\n(",
+                   signif(modulePvalue_frca, 1), ")", sep = "");
+dim(textMatrix) = dim(moduleCor_frca)
+
+#remove grey module for plot
+moduleCor_frca <- subset(moduleCor_frca, rownames(moduleCor_frca)!="MEgrey")
+
+sizeGrWindow(16,12)
+par(mar = c(14,14, 4, 4))
+labeledHeatmap(Matrix = moduleCor_frca,
+               xLabels = biol_lep_frca$microbial_taxa,
+               yLabels = names(MEs_lep_frca),
+               ySymbols = names(MEs_lep_frca),
+               colorLabels = FALSE,
+               colors = blueWhiteRed(50),
+               textMatrix = textMatrix,
+               setStdMargins = FALSE,  cex.text = 0.65, zlim = c(-1,1),
+               main = expression(paste("Module-gene-microbe relationships in ", italic("N. lepida") , "consuming FRCA")))
+
+
+##Do same for N. bryanti
+#subset to just N. bryanti
+
+df_bry <- subset(df, df$Species =="N. bryanti")
+
+biol_bry <- data.frame(t(biol[,1:29]))
+biol_bry$samID <- rownames(biol_bry)
+
+#sort order of biol_lep by numeric
+biol_bry <- biol_bry[order(biol_bry$samID),]
+
+biol_bry <- subset(biol_bry, biol_bry$samID %in% df_bry$sampleID)
+biol_bry <- biol_bry[1:20,]
+biol_bry <- t(biol_bry[,1:20])#this should work now for the corr. matrix below
+
+
+rownames(biol_bry) <- gsub("X", "", rownames(biol_bry))#need to remove the X
+biol_bry <- data.frame(unlist(biol_bry))
+biol_bry <- biol_bry[,1:15]
+
+#get microbe taxa
+tax_df <- data.frame(physeq_C@tax_table, check.names = FALSE)
+tax_df$OTU <- rownames(tax_df)
+#make a joined phyla, class, family 
+tax_df$p_f <- paste(tax_df$Phylum, tax_df$Family, sep ="_")
+
+#get taxa
+biol_bry$microbial_taxa <- tax_df$p_f[match(rownames(biol_bry), tax_df$OTU)]
+
+
+#cut MEs down to same bryida only
+MEs_bry <- MEs[rownames(MEs) %in% colnames(biol_bry),]
+MEs_bry <- MEs_bry[,1:10]
+
+#make nGenes and NSamples variables to match the lep only data
+nGenes = ncol(just_genes)
+nSamples = 15
+
+#module to biological data 
+moduleCor = cor(MEs_bry, t(biol_bry[,1:15]), use = "p");
+
+modubryvalue = corPvalueStudent(moduleCor, nSamples);
+textMatrix = paste(signif(moduleCor, 2), "\n(",
+                   signif(modubryvalue, 1), ")", sep = "");
+dim(textMatrix) = dim(moduleCor)
+
+sizeGrWindow(16,12)
+par(mar = c(14,14, 4, 4))
+labeledHeatmap(Matrix = moduleCor,
+               xLabels = biol_bry$microbial_taxa,
+               yLabels = names(MEs_bry),
+               ySymbols = names(MEs_bry),
+               colorLabels = FALSE,
+               colors = blueWhiteRed(50),
+               textMatrix = textMatrix,
+               setStdMargins = FALSE,  cex.text = 0.65, zlim = c(-1,1),
+               main = expression(paste("Module-gene-microbe relationships in ", italic("N. bryanti"))))
+
+
+
+
+
+
+
+#Exporting data for network figure
+options(stringsAsFactors = TRUE);
+#resultied in empty matrix
+
+#save the norm counts from above here
+TOM=TOMsimilarityFromExpr(norm_counts, power=12)
+
+
+softPower <- 12 ;
+adjacency <- adjacency(norm_counts, power = softPower) ;
+TOM <- TOMsimilarity(adjacency)
+modules = c("pink", "green", "red", "magenta", "blue", "brown", "purple",
+            "yellow", "black", "turquoise", "grey");
+probes = colnames(norm_counts)
+inModule = is.finite(match(moduleColors, modules))
+modProbes = probes[inModule]
+modTOM = TOM[inModule, inModule]
+dimnames(modTOM) = list(modProbes, modProbes)
+cyt = exportNetworkToCytoscape(modTOM,
+                               edgeFile = paste("Cytogene_edges", ".txt", sep=""),
+                               nodeFile = paste("Cytogene_nodes", ".txt", sep=""),
+                               weighted = TRUE,
+                               threshold = 0.02,
+                               nodeNames = modProbes,
+                               altNodeNames = modules,
+                               nodeAttr = moduleColors[inModule])
+
+
+###sanity check the co-expression of genes in modules
+
+mod_8 <- module8_features$feature
+
+
+input_data_check <- data.frame(t(input_data))
+input_data_check$gene <- rownames(input_data_check)
+
+input_8 <- subset(input_data_check, input_data_check$gene %in% module8_features$feature)
