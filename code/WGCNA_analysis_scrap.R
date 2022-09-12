@@ -196,6 +196,7 @@ des_mat <- model.matrix(~ df_clean$species_diet)
 fit <- limma::lmFit(t(MEs), design = des_mat) #run the models
 fit <- limma::eBayes(fit) #empircal Bayes to smooth standard errors
 
+fit$p.value
 
 stats_df <- limma::topTable(fit, number=ncol(MEs)) %>%
   tibble::rownames_to_column("module")
@@ -291,7 +292,7 @@ ggplot(data=gene_microbe_counts, aes(x=NBRY_CYP3A11_0004, y=NBRY_SLC10A2_0001)) 
 biol <- t(just_microbes)
 
 #subset to just N. lepida on FRCA
-df_lep_frca <- subset(df, df$Species =="N. lepida")
+df_lep_frca <- subset(df, df$Species =="N. bryanti" & df$Diet_treatment=="FRCA")
 
 biol_lep_frca <- data.frame(t(biol[,1:29]))
 biol_lep_frca$samID <- rownames(biol_lep_frca)
@@ -301,18 +302,19 @@ biol_lep_frca <- biol_lep_frca[order(biol_lep_frca$samID),]
 
 
 biol_lep_frca <- subset(biol_lep_frca, biol_lep_frca$samID %in% df_lep_frca$sampleID)
-biol_lep_frca <- biol_lep_frca[1:14,]
+biol_lep_frca <- biol_lep_frca[1:7,]
 biol_lep_frca <- t(biol_lep_frca[,1:20])#this should work now for the corr. matrix below
 
 
 rownames(biol_lep_frca) <- gsub("X", "", rownames(biol_lep_frca))#need to remove the X
 biol_lep_frca <- data.frame(unlist(biol_lep_frca))
-biol_lep_frca <- biol_lep_frca[,1:14]
+biol_lep_frca <- biol_lep_frca[,1:7]
 
 #get microbe taxa
 tax_df <- data.frame(physeq_C@tax_table, check.names = FALSE)
 #make a joined phyla, class, family 
-tax_df$p_g <- paste(tax_df$Phylum, tax_df$Genus, sep ="_")
+tax_df$p_g <- paste(tax_df$Phylum, tax_df$Order, tax_df$Family, tax_df$Genus,tax_df$Species, sep ="_")
+
 
 #get taxa
 biol_lep_frca$microbial_taxa <- tax_df$p_g[match(rownames(biol_lep_frca), rownames(tax_df))]
@@ -322,13 +324,18 @@ biol_lep_frca$microbial_taxa <- tax_df$p_g[match(rownames(biol_lep_frca), rownam
 MEs_lep_frca <- MEs[rownames(MEs) %in% colnames(biol_lep_frca),]
 MEs_lep_frca <- MEs_lep_frca[,1:10] #remove the grey 'module', which is the 11th module
 
+#remove rows that sum to 0 as need variation for correlation to work
+biol_lep_frca <- biol_lep_frca[rowSums(biol_lep_frca[,1:7])>0,]
+
+
 #make nGenes and NSamples variables to match the lep only data
 nGenes = ncol(just_genes)
-nSamples = 14
+nSamples = 7
+
 
 
 #module to biological data 
-moduleCor_frca = cor(MEs_lep_frca, t(biol_lep_frca[,1:14]), use = "p");
+moduleCor_frca = cor(MEs_lep_frca, t(biol_lep_frca[,1:7]), use = "p");
 
 modulePvalue_frca = corPvalueStudent(moduleCor_frca, nSamples);
 textMatrix = paste(signif(moduleCor_frca, 2), "\n(",
@@ -337,6 +344,7 @@ dim(textMatrix) = dim(moduleCor_frca)
 
 #remove grey module for plot
 moduleCor_frca <- subset(moduleCor_frca, rownames(moduleCor_frca)!="MEgrey")
+
 
 sizeGrWindow(16,12)
 par(mar = c(14,14, 4, 4))
@@ -348,7 +356,7 @@ labeledHeatmap(Matrix = moduleCor_frca,
                colors = blueWhiteRed(50),
                textMatrix = textMatrix,
                setStdMargins = FALSE,  cex.text = 0.65, zlim = c(-1,1),
-               main = expression(paste("Module-gene-microbe relationships in ", italic("N. lepida") , "consuming FRCA")))
+               main = expression(paste("Module-gene-microbe relationships in ", italic("N. bryanti") , " consuming FRCA")))
 
 
 ##Do same for N. bryanti

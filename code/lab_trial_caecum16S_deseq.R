@@ -10,13 +10,13 @@ library(DESeq2)
 library(data.table)
 
 
-#load and rename phyloseq data
-load("physeq_C.rdata")
-physeq <- physeq_C
-#rename to WR_species so it doesn't conflict below
-names(physeq@sam_data)[names(physeq@sam_data) == 'Species'] <- 'WR_species'
+#load in phyloseq object for Caecum data
+physeq_C <- readRDS("physeq_C.rds")
 
-sum(sample_sums(physeq)) #total number of reads 245546 across 3396 otus
+#rename to WR_species so it doesn't conflict below
+names(physeq_C@sam_data)[names(physeq_C@sam_data) == 'Species'] <- 'WR_species'
+
+sum(sample_sums(physeq_C)) #total number of reads 202388 across 1444 otus
 
 
 ##Rarefy?
@@ -24,9 +24,7 @@ sum(sample_sums(physeq)) #total number of reads 245546 across 3396 otus
 #physeq <- rarefy_even_depth(physeq,sample.size = min(sample_sums(physeq)))
 
 
-#remove potential contaminants
-physeq <- subset_taxa(physeq, Family != "Mitochondria" | Class != "Chloroplast")
-
+physeq <- physeq_C
 #make factor levels for diet
 physeq@sam_data$Diet_treatment <- as.factor(physeq@sam_data$Diet_treatment)
 
@@ -81,8 +79,8 @@ diff_abund_plot <- ggplot(sigtab, aes(x=Fam_Genus_species, y=log2FoldChange, col
   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5)) + coord_flip() +
   geom_hline(yintercept = 0, linetype="dashed", 
              color = "black", size=1.0) + 
-  annotate("text", x = 10, y=-10, label = "FRCA",size = unit(14, "pt")) +
-  annotate("text", x = 10, y=10, label = "PRFA",size = unit(14, "pt")) +
+  annotate("text", x = 8, y=-10, label = "FRCA",size = unit(14, "pt")) +
+  annotate("text", x = 8, y=10, label = "PRFA",size = unit(14, "pt")) +
   theme(axis.text.x = element_text(size = 20)) + xlab("Taxa") +
   theme(legend.position="bottom", legend.title=element_text(size=20), legend.text=element_text(size=20)) +
   theme(axis.text.y = element_text(size = 20),
@@ -147,8 +145,8 @@ diff_abund_bry_plot <- ggplot(sigtab_bry, aes(x=Fam_Genus_species, y=log2FoldCha
   theme(axis.text.x = element_text(size = 20)) + xlab("Taxa") +
   geom_hline(yintercept = 0, linetype="dashed", 
              color = "black", size=1.0) + 
-  annotate("text", x = 2.5, y=10, label = "FRCA",size = unit(14, "pt")) +
-  annotate("text", x = 2.5, y=-10, label = "PRFA",size = unit(14, "pt")) +
+  annotate("text", x = 1, y=10, label = "FRCA",size = unit(14, "pt")) +
+  #annotate("text", x = 1, y=-10, label = "PRFA",size = unit(14, "pt")) +
   theme(legend.position="bottom", legend.title=element_text(size=20), legend.text=element_text(size=20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24))
