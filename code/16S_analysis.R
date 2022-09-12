@@ -27,11 +27,8 @@ library(btools)
 
 #load in phyloseq object for Caecum data
 
-load("physeq_C.rdata")
-physeq_C  #phyloseq object
+physeq_C <- readRDS("physeq_C.rds")
 
-#remove potential contaminants
-physeq_C <- subset_taxa(physeq_C, Family != "Mitochondria" | Class != "Chloroplast")
 
 physeq_C@sam_data$Species <- factor(physeq_C@sam_data$Species, levels=c("N. lepida", "N. bryanti"))
 
@@ -43,7 +40,6 @@ pSeqDepth = ggplot(sdt, aes(TotalReads)) + geom_histogram() + ggtitle("Sequencin
 pSeqDepth
 
 
-
 #calculate Faith's phylogenetic diversity
 
 physeq_C@sam_data$PD <- estimate_pd(physeq_C) #uses the btools package
@@ -52,7 +48,7 @@ physeq_C@sam_data$PD <- estimate_pd(physeq_C) #uses the btools package
 #Then plot using wilcox test for differences in diversity between groups - plot both PD & richness
 PD_div_box_plot <- ggplot(data=physeq_C@sam_data, aes(x=physeq_C@sam_data$Diet_treatment,y=physeq_C@sam_data$PD$SR)) +
   geom_boxplot() + facet_wrap(~physeq_C@sam_data$Species) + geom_jitter() + stat_n_text() + theme_bw() +
-  geom_signif(test = "wilcox.test", y_position = 250, map_signif_level = TRUE, comparisons = list(c("PRFA", "FRCA"))) +
+  geom_signif(test = "wilcox.test", y_position = 225, map_signif_level = TRUE, comparisons = list(c("PRFA", "FRCA"))) +
   ylab("Microbial Richness") + xlab("Diet Treatment") +
   theme(plot.title = element_text(hjust = 0.5, size = 24)) + 
   theme(legend.text = element_text(size = 20, face = "italic")) +

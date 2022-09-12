@@ -35,3 +35,8 @@ physeq <- subset_taxa(physeq, Family != "Mitochondria" | Class != "Chloroplast")
 #remove singletons
 physeq <- prune_taxa(taxa_sums(physeq) > 1, physeq)
 
+#save this phyloseq object as physeq_C
+
+saveRDS(physeq, "/Volumes/GoogleDrive/My Drive/dissertation/ch. 3/Feeding_trials/Trial_data/data/physeq_C.rds")
+
+

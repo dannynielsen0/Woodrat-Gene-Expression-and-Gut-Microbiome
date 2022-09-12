@@ -27,11 +27,8 @@ library(btools)
 
 #load in phyloseq object for Caecum data
 
-load("physeq_C.rdata")
-physeq_C  #phyloseq object
+physeq_C <- readRDS("physeq_C.rds")
 
-#remove potential contaminants
-physeq_C <- subset_taxa(physeq_C, Family != "mitochondria" & Class != "chloroplast")
 
 #reorder factors
 physeq_C@sam_data$Species <- factor(physeq_C@sam_data$Species, levels=c("N. lepida", "N. bryanti"))
