@@ -25,6 +25,7 @@ library(data.table)
 library(tibble)
 library(ggforce)
 
+
 #load in microbe and gene count data
 
 load("DE_gene_microbe_counts.rdata")
@@ -49,6 +50,7 @@ load("physeq_C.rdata")
 #check for excessive missing values and remove outliers
 #check for features with too many missing values
 gsg = goodSamplesGenes(gene_microbe_counts, verbose = 3)
+
 gsg$allOK #if false, remove below
 
 #function for removal of bad features (from: https://horvath.genetics.ucla.edu/html/CoexpressionNetwork/Rpackages/WGCNA/Tutorials/FemaleLiver-01-dataInput.pdf)
@@ -213,12 +215,14 @@ module_ME1 <- MEs %>%
 mod_long <- melt(data=module_ME1[,c(13,2:12)])
 
 mod_long <- subset(mod_long, mod_long$variable!="MEgrey")
+mod_long_PGR <- subset(mod_long, mod_long$variable == "MEpink" | mod_long$variable == "MEgreen" |
+                       mod_long$variable == "MEred")
 
 #plot these results
-
+saveRDS(mod_long, "WGCNA_module_plotting.RDS")
 
 mod_plot <- ggplot(
-  mod_long,
+  mod_long_PGR,
   aes(x=species_diet, y = value, fill=variable)) +
   # a boxplot with outlier points hidden (they will be in the sina plot)
   geom_boxplot(outlier.shape = NA) + #coord_flip() +
@@ -232,11 +236,12 @@ mod_plot <- ggplot(
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20)) + 
   theme(strip.text.x = element_text(size = 20)) +
-  theme(legend.text = element_text(size = 20), legend.title=element_text(size=20)) +
-  guides(fill=guide_legend(title="Module"))
+  theme(legend.position = "none") +
+  geom_hline(yintercept = 0, linetype="dashed", 
+             color = "black", size=1.0)
 
 
-ggsave(plot=mod_plot, "../Lab-diet-trial-16S-analysis/figures/modules_grouped_boxplot.jpg", width = 12, height =8 , device='jpg', dpi=500)
+ggsave(plot=mod_plot, "../Lab-diet-trial-16S-analysis/figures/modules_grouped_upREG.jpg", width = 12, height =8 , device='jpg', dpi=500)
 
 
 
@@ -292,7 +297,7 @@ ggplot(data=gene_microbe_counts, aes(x=NBRY_CYP3A11_0004, y=NBRY_SLC10A2_0001)) 
 biol <- t(just_microbes)
 
 #subset to just N. lepida on FRCA
-df_lep_frca <- subset(df, df$Species =="N. bryanti" & df$Diet_treatment=="FRCA")
+df_lep_frca <- subset(df, df$Species =="N. lepida" & df$Diet_treatment=="FRCA")
 
 biol_lep_frca <- data.frame(t(biol[,1:29]))
 biol_lep_frca$samID <- rownames(biol_lep_frca)
@@ -453,10 +458,16 @@ cyt = exportNetworkToCytoscape(modTOM,
 
 ###sanity check the co-expression of genes in modules
 
-mod_8 <- module8_features$feature
+sanity_check <- input_data %>%
+  tibble::rownames_to_column("sampleID") %>%
+  
+  dplyr::inner_join(df_clean %>%
+                      dplyr::select(sampleID, species_diet),
+                    by = c("sampleID" = "sampleID"))
+NBRY_ASNS_0001
 
+ggplot(data=sanity_check, aes(x=species_diet, y=NBRY_BEST2_0001)) +
+  geom_boxplot()
 
-input_data_check <- data.frame(t(input_data))
-input_data_check$gene <- rownames(input_data_check)
+module2_features
 
-input_8 <- subset(input_data_check, input_data_check$gene %in% module8_features$feature)
