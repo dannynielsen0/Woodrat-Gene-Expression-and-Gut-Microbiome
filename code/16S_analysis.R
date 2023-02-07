@@ -18,6 +18,7 @@ library(data.table)
 library("EnvStats") #plotting sample size
 library("ggpubr") #plotting stats
 library(vegan)
+library(qiime2R)
 
 
 #also need to install btools for estimating diversity
@@ -27,14 +28,36 @@ library(btools)
 
 #load in phyloseq object for Caecum data
 
-physeq_C <- readRDS("physeq_C.rds")
+physeq <- qza_to_phyloseq(features="qiime_output/table.qza",tree="qiime_output/fasttree-tree-rooted.qza",
+                          taxonomy = "qiime_output/taxonomy.qza", metadata = "qiime_output/C_FG_metadata.txt")
+
+#change variables to factors
+physeq@sam_data[] <- lapply(physeq@sam_data, factor)
 
 
-physeq_C@sam_data$Species <- factor(physeq_C@sam_data$Species, levels=c("N. lepida", "N. bryanti"))
+sum(sample_sums(physeq@otu_table)) #635,508
+
+
+
+#remove potential contaminants
+physeq<- subset_taxa(physeq, Family != "Mitochondria" & Order != "Chloroplast" & Kingdom != "d__Eukaryota")
+
+#remove singletons
+physeq <- prune_taxa(taxa_sums(physeq) > 1, physeq)
+
+#make group species_diet 
+physeq@sam_data$sp_diet <- paste(physeq@sam_data$Species, physeq@sam_data$diet_treatment, sep="_")
+
+#rename RHCA to FRCA
+levels(physeq@sam_data$diet_treatment) <- c("PRFA", "FRCA")
+
+#make separate for C and FG samples
+physeq_C <- subset_samples(physeq, Gut_region=="Caecum")
+physeq_FG <- subset_samples(physeq, Gut_region=="Foregut")
 
 #check sequencing depth
-sdt = data.table(as(sample_data(physeq_C), "data.frame"),
-                 TotalReads = sample_sums(physeq_C), keep.rownames = TRUE)
+sdt = data.table(as(sample_data(physeq), "data.frame"),
+                 TotalReads = sample_sums(physeq), keep.rownames = TRUE)
 setnames(sdt, "rn", "SampleID")
 pSeqDepth = ggplot(sdt, aes(TotalReads)) + geom_histogram() + ggtitle("Sequencing Depth")
 pSeqDepth
@@ -43,13 +66,14 @@ pSeqDepth
 #calculate Faith's phylogenetic diversity
 
 physeq_C@sam_data$PD <- estimate_pd(physeq_C) #uses the btools package
+physeq_FG@sam_data$PD <- estimate_pd(physeq_FG)#uses the btools package
 
 
 #Then plot using wilcox test for differences in diversity between groups - plot both PD & richness
-PD_div_box_plot <- ggplot(data=physeq_C@sam_data, aes(x=physeq_C@sam_data$Diet_treatment,y=physeq_C@sam_data$PD$SR)) +
+PD_div_box_plot <- ggplot(data=physeq_C@sam_data, aes(x=physeq_C@sam_data$diet_treatment,y=physeq_C@sam_data$PD$SR)) +
   geom_boxplot() + facet_wrap(~physeq_C@sam_data$Species) + geom_jitter() + stat_n_text() + theme_bw() +
-  geom_signif(test = "wilcox.test", y_position = 225, map_signif_level = TRUE, comparisons = list(c("PRFA", "FRCA"))) +
-  ylab("Microbial Richness") + xlab("Diet Treatment") +
+  geom_signif(test = "wilcox.test", y_position = 275, map_signif_level = TRUE, comparisons = list(c("PRFA", "FRCA"))) +
+  ylab("Microbial Richness of Caecum") + xlab("Diet Treatment") +
   theme(plot.title = element_text(hjust = 0.5, size = 24)) + 
   theme(legend.text = element_text(size = 20, face = "italic")) +
   theme(legend.title = element_text(size=20)) +
@@ -62,7 +86,7 @@ PD_div_box_plot <- ggplot(data=physeq_C@sam_data, aes(x=physeq_C@sam_data$Diet_t
 PD_div_box_plot
 
 #save plot
-ggsave(plot=PD_div_box_plot, "../Lab-diet-trial-16S-analysis/figures/microbial_richness.jpg", width = 10, height =8 , device='jpg', dpi=500)
+ggsave(plot=PD_div_box_plot, "../Lab-diet-trial-16S-analysis/figures/microbial_richness_C.jpg", width = 10, height =8 , device='jpg', dpi=500)
 
 
 #convert to RRA 
