@@ -33,38 +33,37 @@ high_low_data$sp_diet_thresh <- paste(high_low_data$Species, high_low_data$Diet_
                                       high_low_data$Diet_threshold, sep="_")
 
 
+
+
 #run model with lm_robust from estimatr model
 
-water_model <- lm_robust(Water_consumed_day~sp_diet_thresh + WR_bm + Sex,
+water_model <- lm_robust(Water_consumed_day~sp_diet_thresh,
                          clusters=Woodrat_id,
                          data=high_low_data)
 
 summary(water_model)
-car::Anova(water_model)
 
-water_model <- aov(Water_consumed_day~Species * Diet_type * Diet_threshold + WR_bm +
-                     Species + Sex,
+#minutes active per day
+activity_model <- lm_robust(Minutes_active~sp_diet_thresh + WR_bm + Sex,
+                         clusters=Woodrat_id,
                          data=high_low_data)
+summary(activity_model)
 
-summary(water_model)
-car::Anova(water_model)
-TukeyHSD(water_model, which = c("Diet_type","Diet_threshold"))
+#max speed
+max_speed_model <- lm_robust(Max_speed_ms~sp_diet_thresh + WR_bm + Sex,
+                            clusters=Woodrat_id,
+                            data=high_low_data)
+summary(max_speed_model)
 
 
-mixed <- lmer(
-  Water_consumed_day ~ Species * Diet_type * Diet_threshold + WR_bm + Sex + (1|Woodrat_id),
-  data = high_low_data
-)
+#food/day
+food_model <- lm_robust(Food_eaten_day~sp_diet_thresh + WR_bm + Sex,
+                             clusters=Woodrat_id,
+                             data=high_low_data)
+summary(food_model)
 
-summary(mixed, correlation = FALSE)
-anova(mixed)
 
-library(emmeans)
 
-marginals <- emmeans(mixed, ~Species * Diet_type * Diet_threshold)
-plot(marginals)
 
-emmip(water_model, Species ~ Diet_threshold | Diet_type) +
-  scale_color_brewer(type = "qual") +
-  theme_classic(16)
+
 
