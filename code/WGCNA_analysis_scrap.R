@@ -28,7 +28,7 @@ library(ggforce)
 
 #load in microbe and gene count data
 
-load("DE_gene_microbe_counts.rdata")
+gene_microbe_counts <- readRDS("DE_gene_microbe_counts.rdata")
 gene_microbe_counts
 
 #load the entire 363 DE genes
@@ -36,16 +36,16 @@ load("SxD_DE_caecum_genes.RData")
 input_data <- input_data[order(rownames(input_data)),]
 
 #just genes
-just_genes <- gene_microbe_counts[,21:65]
+just_genes <- gene_microbe_counts[,13:57]
 #just microbes
-just_microbes <- gene_microbe_counts[,1:20]
+just_microbes <- gene_microbe_counts[,1:12]
 
 #load the sample metadata
 load("df_gene_microbe.rdata")
 df <- df[order(rownames(df)),]
 
 #load physeq data
-load("physeq_C.rdata")
+physeq_C <- readRDS("physeq_C.rds")
 
 #check for excessive missing values and remove outliers
 #check for features with too many missing values
@@ -131,6 +131,7 @@ cor <- WGCNA::cor
 
 #construct network and detect modules
 network1 <- WGCNA::blockwiseModules(norm_counts, power= 12,
+                            networkType = "signed",
                              TOMType = "signed", minModuleSize = 5, #signed type finds of positively correlated relationships
                              reassignThreshold = 0, mergeCutHeight = 0.25,
                              numericLabels = TRUE, pamRespectsDendro = FALSE,
@@ -150,7 +151,8 @@ moduleLabels <- network1$colors
 moduleColors <- labels2colors(network1$colors)
 MEs <- network1$MEs
 genetree <- network1$dendrograms[[1]]
-save(moduleLabels, moduleColors, MEs, genetree, file = "/Users/dannynielsen/Desktop/lab_trials_16S/WGCNA_data.RData")
+save(moduleLabels, moduleColors, MEs, genetree, 
+     file = "/Users/dannynielsen/Desktop/lab_trials_16S/WGCNA_data.RData")
 
 MEsO <- moduleEigengenes(norm_counts, moduleColors)$eigengenes
 
@@ -181,7 +183,7 @@ head(module_eigengenes)
 
 df_clean <- df
 
-#chck out some treatment effects
+#check out some treatment effects
 all.equal(df_clean$sampleID, rownames(module_eigengenes)) #check that rows are same between metadata and modules
 
 #let's make a species_diet grouping variable
@@ -212,7 +214,7 @@ module_ME1 <- MEs %>%
                       dplyr::select(sampleID, species_diet),
                     by = c("sampleID" = "sampleID"))
 
-mod_long <- melt(data=module_ME1[,c(13,2:12)])
+mod_long <- melt(data=module_ME1[,c(17,2:16)])
 
 mod_long <- subset(mod_long, mod_long$variable!="MEgrey")
 mod_long_PGR <- subset(mod_long, mod_long$variable == "MEpink" | mod_long$variable == "MEgreen" |
@@ -220,16 +222,17 @@ mod_long_PGR <- subset(mod_long, mod_long$variable == "MEpink" | mod_long$variab
 
 #plot these results
 saveRDS(mod_long, "WGCNA_module_plotting.RDS")
+mod_long <- readRDS("WGCNA_module_plotting.RDS")
 
 mod_plot <- ggplot(
-  mod_long_PGR,
+  mod_long,
   aes(x=species_diet, y = value, fill=variable)) +
   # a boxplot with outlier points hidden (they will be in the sina plot)
   geom_boxplot(outlier.shape = NA) + #coord_flip() +
   # A sina plot to show all of the individual data points
   #ggforce::geom_sina(maxwidth = 0.3) + 
   ylab("Expression Level") + xlab("") + ylim(-0.4,0.4) +
-  theme_bw() + scale_fill_manual(values= c("pink", "green", "red", "magenta", "blue",
+  theme_bw() + scale_fill_manual(values= c("pink", "forestgreen", "red", "magenta", "blue",
                                       "brown", "purple", "yellow", "black", "turquoise")) +
   theme(plot.title = element_text(size=22)) +
   theme(axis.text.x = element_text(size = 20, angle = 45, vjust = 1, hjust=1)) +
@@ -308,7 +311,7 @@ biol_lep_frca <- biol_lep_frca[order(biol_lep_frca$samID),]
 
 biol_lep_frca <- subset(biol_lep_frca, biol_lep_frca$samID %in% df_lep_frca$sampleID)
 biol_lep_frca <- biol_lep_frca[1:7,]
-biol_lep_frca <- t(biol_lep_frca[,1:20])#this should work now for the corr. matrix below
+biol_lep_frca <- t(biol_lep_frca[,1:12])#this should work now for the corr. matrix below
 
 
 rownames(biol_lep_frca) <- gsub("X", "", rownames(biol_lep_frca))#need to remove the X
@@ -318,7 +321,7 @@ biol_lep_frca <- biol_lep_frca[,1:7]
 #get microbe taxa
 tax_df <- data.frame(physeq_C@tax_table, check.names = FALSE)
 #make a joined phyla, class, family 
-tax_df$p_g <- paste(tax_df$Phylum, tax_df$Order, tax_df$Family, tax_df$Genus,tax_df$Species, sep ="_")
+tax_df$p_g <- paste(tax_df$Order, tax_df$Family, tax_df$Genus, sep ="_")
 
 
 #get taxa
@@ -351,7 +354,6 @@ dim(textMatrix) = dim(moduleCor_frca)
 moduleCor_frca <- subset(moduleCor_frca, rownames(moduleCor_frca)!="MEgrey")
 
 
-sizeGrWindow(16,12)
 par(mar = c(14,14, 4, 4))
 labeledHeatmap(Matrix = moduleCor_frca,
                xLabels = biol_lep_frca$microbial_taxa,
@@ -361,13 +363,13 @@ labeledHeatmap(Matrix = moduleCor_frca,
                colors = blueWhiteRed(50),
                textMatrix = textMatrix,
                setStdMargins = FALSE,  cex.text = 0.65, zlim = c(-1,1),
-               main = expression(paste("Module-gene-microbe relationships in ", italic("N. bryanti") , " consuming FRCA")))
+               main = expression(paste("Module-gene-microbe relationships in ", italic("N. lepida") , " consuming FRCA")))
 
 
 ##Do same for N. bryanti
 #subset to just N. bryanti
 
-df_bry <- subset(df, df$Species =="N. bryanti")
+df_bry <- subset(df, df$Species == "N. bryanti" & df$Diet_treatment=="PRFA")
 
 biol_bry <- data.frame(t(biol[,1:29]))
 biol_bry$samID <- rownames(biol_bry)
@@ -376,13 +378,13 @@ biol_bry$samID <- rownames(biol_bry)
 biol_bry <- biol_bry[order(biol_bry$samID),]
 
 biol_bry <- subset(biol_bry, biol_bry$samID %in% df_bry$sampleID)
-biol_bry <- biol_bry[1:20,]
-biol_bry <- t(biol_bry[,1:20])#this should work now for the corr. matrix below
+biol_bry <- biol_bry[1:8,]
+biol_bry <- t(biol_bry[,1:8])#this should work now for the corr. matrix below
 
 
 rownames(biol_bry) <- gsub("X", "", rownames(biol_bry))#need to remove the X
 biol_bry <- data.frame(unlist(biol_bry))
-biol_bry <- biol_bry[,1:15]
+biol_bry <- biol_bry[,1:8]
 
 #get microbe taxa
 tax_df <- data.frame(physeq_C@tax_table, check.names = FALSE)
@@ -400,10 +402,10 @@ MEs_bry <- MEs_bry[,1:10]
 
 #make nGenes and NSamples variables to match the lep only data
 nGenes = ncol(just_genes)
-nSamples = 15
+nSamples = 8
 
 #module to biological data 
-moduleCor = cor(MEs_bry, t(biol_bry[,1:15]), use = "p");
+moduleCor = cor(MEs_bry, t(biol_bry[,1:8]), use = "p");
 
 modubryvalue = corPvalueStudent(moduleCor, nSamples);
 textMatrix = paste(signif(moduleCor, 2), "\n(",
@@ -460,7 +462,6 @@ cyt = exportNetworkToCytoscape(modTOM,
 
 sanity_check <- input_data %>%
   tibble::rownames_to_column("sampleID") %>%
-  
   dplyr::inner_join(df_clean %>%
                       dplyr::select(sampleID, species_diet),
                     by = c("sampleID" = "sampleID"))
@@ -470,4 +471,37 @@ ggplot(data=sanity_check, aes(x=species_diet, y=NBRY_BEST2_0001)) +
   geom_boxplot()
 
 module2_features
+
+
+
+#gradient forest approach 
+
+library(gradientForest)
+
+
+MEs_lep_frca
+
+t(biol_lep_frca[,1:7])
+
+biol
+
+ME_microbes <- cbind(MEs_lep_frca,t(biol_lep_frca[,1:7]))
+
+specs <- colnames(ME_microbes[grep("^ME", colnames(ME_microbes))])
+preds <- colnames(ME_microbes[grep("^ME", colnames(ME_microbes), invert = TRUE)])
+
+#mantel
+gene_dist <- vegdist(MEs_lep_frca, method = "bray")
+microbe_dist <- vegdist(t(biol_lep_frca[,1:7]), method="bray")
+
+mantel.test <- mantel(gene_dist, microbe_dist, method="pearson", permutations =  999, na.rm = TRUE)
+
+#Gradient Forest
+g_forest <- gradientForest(ME_microbes, preds, specs, ntree = 10, 
+                           check.names = FALSE, transform = function(x){sqrt(x)})
+
+
+
+
+
 
