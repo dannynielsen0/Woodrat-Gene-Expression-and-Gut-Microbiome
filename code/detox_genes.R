@@ -92,7 +92,6 @@ bry_detox_genes$Consolidated_Group <- NA #create an empty column for the consoli
   lep_detox_genes_conslidated <- aggregate(. ~ Consolidated_Group, data=lep_detox_genes, sum)
   
 
-  
      
 ###Everything below is notes from other code to pull from for above
   #to look for gene families
