@@ -112,5 +112,3 @@ write.csv(all_cyps_w, "cyps.csv")
 saveRDS(all_counts, file = "all_gene_counts.RDS") 
 
 
-
-
