@@ -139,6 +139,7 @@
   melted_data$aligned <- factor(melted_data$aligned, levels=c("lep", "bry")) 
   melted_data$Tissue <- factor(melted_data$Tissue, levels=c("FG","SI", "C", "L"))
   melted_data$Species <- factor(melted_data$Species, levels=c("N. lepida", "N. bryanti"))
+  melted_data$diet_treatment <- factor(melted_data$diet_treatment, levels=c("PRFA", "FRCA"))
   melted_data$value <- as.numeric(melted_data$value)
   
 
@@ -155,15 +156,15 @@
     # Check if the subset is not empty
     if (nrow(gene_subset) > 0) {
       # Calculate group averages
-      group_averages <- aggregate(value ~ Species + Tissue, data = gene_subset, FUN = mean)
+      group_averages <- aggregate(value ~ Species + Tissue + diet_treatment, data = gene_subset, FUN = mean)
       
       # Create ggplot for the current gene
-      gg <- ggplot(gene_subset, aes(x = WR_ID, y = value, fill = aligned)) +
+      gg <- ggplot(gene_subset, aes(x = interaction(WR_ID,Species, diet_treatment), y = value, fill=aligned)) +
         # Add dashed line for group average in each facet
         geom_hline(data = group_averages, aes(yintercept = value, linetype = "Group Average"), 
-                   color = "black", linetype = "dashed", size = 0.4) +
-        geom_bar(stat = "identity") + #coord_flip() +
-        facet_grid(Species ~ Tissue) +
+                   color = "black", linetype = "dashed", linewidth = 0.4) +
+        geom_bar(stat = "identity") + #guides(fill=guide_legend(title="Aligned")) +
+        facet_grid(Species ~ Tissue + diet_treatment, scales="free_x", space = "free_x") +
         labs(title = paste("Stacked Bar Plot for", gene), x = "", y = "Total Reads") +
         theme_bw() +
         theme(axis.title.x = element_blank(),
@@ -194,48 +195,3 @@
   
   
   
-  
-  
-  
-  ABCA_data <- melted_data[melted_data$variable=="CYP2A",] 
-  
-  
-  ggplot(ABCA_data, aes(x = WR_ID, y = value, fill = aligned)) +
-    geom_bar(stat = "identity") + coord_flip() +
-    facet_grid(Species~Tissue) +
-    labs(title = "Stacked Bar Plot", x="", y = "") +
-    theme_bw() +
-    theme(axis.title.y = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank(),
-      panel.grid = element_blank()) +
-    scale_y_continuous(breaks = scales::pretty_breaks(n=3))
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-   
-  ###Everything below is notes from other code to pull from for above
-  #to look for gene families
-  View(all_counts[grep("NBRY_CYP[1-3]([^0-9]|$)", row.names(all_counts)),]) #replace SULT with desired gene
-View(caecum.int.DEGs[grep("SULT", row.names(caecum.int.DEGs)),])
-View(liver_spec_DEGs[grep("NBRY_GST", row.names(liver_spec_DEGs)),])
-
-all_cyps <- t(all_counts[grep("_CYP|-cyp", row.names(all_counts)),])
-all_sults <- t(all_counts[grep("_SULT", row.names(all_counts)),])
-all_Ugts <- t(all_counts[grep("-Ugt", row.names(all_counts)),])
-all_Ugts <- cbind(all_Ugts,sampleTable)
-all_cyps <- cbind(all_cyps,sampleTable) #add sample info
-all_cyps <- all_cyps[,c(121:129,1:120)]
-all_Ugts <- all_Ugts[,c(30:38,1:29)]
-write.csv(all_cyps_w, "cyps.csv")
-#save all_counts object
-saveRDS(all_counts, file = "all_gene_counts.RDS") 
-
-
