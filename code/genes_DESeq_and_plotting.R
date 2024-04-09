@@ -2,19 +2,21 @@
 
 rm(list=ls())
 
-setwd("/Volumes/GoogleDrive/My Drive/dissertation/ch. 3/Feeding_trials/Trial_data/data")
+setwd("~/Library/CloudStorage/GoogleDrive-dannynielsen@nevada.unr.edu/My Drive/dissertation/ch. 3/Feeding_trials/Trial_data/data")
 
 #load libraries
 library(reshape2)
 library(factoextra)
 library(limma)
+library(DESeq2)
+library(VennDiagram)
 
 
 
 #read in the various deseq and other data objects
 
 #bryanti aligned counts
-bry_C <- readRDS("bry_caecum_dds.RDS")
+bry_C <- readRDS("bryFirst_caecum_dds.RDS")
 bry_FG <- readRDS("bry_foregut_dds.RDS")
 bry_L <- readRDS("bry_liver_dds.RDS")
 bry_SI <- readRDS("bry_SI_dds.RDS")
@@ -214,25 +216,46 @@ biplot <- fviz_pca_biplot(pca, repel = TRUE, axes = c(1,2),
                           select.var = list(contrib = 25), #draw top 25 arrows
                           #select.var = list(name = c("NBRY_SULT2B1_0001","NBRY_APOA4_0001", "NBRY_FADS3_0001", "NBRY_SULT2A1_0001")),  #alternative to draw specific substitution loadings
                           addEllipses = TRUE,
-                          habillage = lep_C$group,
-                          col.ind = lep_C$Species,
+                          habillage = bry_C$group,
+                          col.ind = bry_C$Species,
                           ellipse.level=0.95,
                           palette = c("forestgreen", "darkgreen", "darkred", "maroon"),
                           geom=c("point"), pointsize = 5,   #change to geom=c("point","text") for sample ID
-                          ind.shape = lep_C$Diet,
-                          ind.fill = lep_C$Species,
+                          ind.shape = bry_C$Diet,
+                          ind.fill = bry_C$Species,
                           invisible = c( "quali"), #remove enlarged symbol for group mean
                           title = "Woodrat Caecum") +
   theme(text = element_text(size = 16),
         axis.title = element_text(size = 16),
         axis.text = element_text(size = 16))
 
+ggsave(plot=biplot, "../Lab-diet-trial-16S-analysis/figures/pca_bry_aligned.jpg", width = 8, height =6 , device='jpg', dpi=500)
+
+
 
 #Get DESeq results and numbers of DE genes
 #first create appropriate design matrix:
-sampleTable <- as.data.frame(lep_C@colData@listData)[,1:7] #make the sampleTable object
+sampleTable <- as.data.frame(bry_C@colData@listData)[,1:7] #make the sampleTable object
 design <- model.matrix(~0 + group, data = sampleTable)
 colnames(design) <- levels(sampleTable$group)
+
+#compare the average effect of being a bryanti to the average effect of being lepida
+con.species <- makeContrasts(lepVSbry = (N_lepida_PRFA + N_lepida_FRCA)/2
+                            - (N_bryanti_PRFA + N_bryanti_FRCA)/2,
+                            levels=design)
+species_result <- results(bry_SI, contrast = con.species, alpha = 0.05) #results for caecum, and from bry or lep aligned data
+species_bry_SI <- as.data.frame(subset(species_result, species_result$padj < 0.05 & abs(species_result$log2FoldChange) > 2))
+#725 genes DE in caecum between species; 466 in FG; 943 in Liver; 468 in SI
+write.csv(species_bry_SI, "bry_aligned_results/bry_SI_species_DEGs.csv")
+
+#compare the average effect of eating RHCA to the average effect of eating PRFA
+con.diet <- makeContrasts(PRFAvsRHCA = (N_lepida_PRFA + N_bryanti_PRFA)/2
+                          - (N_lepida_FRCA + N_bryanti_FRCA)/2,
+                          levels=design)
+diet_result <- results(bry_SI, contrast = con.diet, alpha = 0.05) #results for caecum, and from bry or lep aligned data
+diet_bry_SI <- as.data.frame(subset(diet_result, diet_result$padj < 0.05 & abs(diet_result$log2FoldChange) > 2))
+#313 genes DE in caecum between diet; 5 in FG; 6 in liver; 26 in SI
+write.csv(diet_bry_SI, "bry_aligned_results/bry_SI_diet_DEGs.csv")
 
 
 #Set up contrast for interaction effect
@@ -243,16 +266,32 @@ con.interaction <- makeContrasts(Interaction = ((N_bryanti_PRFA - N_lepida_PRFA)
 
 #The genes that show a significant diet x species interaction
 #i.e. "Is the diet effect different across species?"
-interaction_result <- results(lep_C, contrast = con.interaction, alpha = 0.05) #results for caecum, and from bry or lep aligned data
+interaction_result <- results(bry_SI, contrast = con.interaction, alpha = 0.05) #results for caecum, and from bry or lep aligned data
 summary(interaction_result) 
-int_bry_caecum <- as.data.frame(subset(interaction_result, interaction_result$padj < 0.05 & abs(interaction_result$log2FoldChange) > 2))
-#343 DE genes in the caecum on bry aligned data
-#277 DE genes in the caecum on lep aligned data
-write.table(merge(as.data.frame(subset(interaction_result, interaction_result$padj < 0.05 & abs(interaction_result$log2FoldChange) > 2)), 
-                  genes, by="row.names", all.y=FALSE),
-            file = "caecum_DEGs/interaction_result.txt",
-            quote = FALSE, sep = "\t", row.names=FALSE)
+int_bry_SI <- as.data.frame(subset(interaction_result, interaction_result$padj < 0.05 & abs(interaction_result$log2FoldChange) > 2))
+#311 DE genes in the caecum on bry aligned data; 3 in FG; 4 in liver; 34 in SI
+write.csv(int_bry_SI, "bry_aligned_results/bry_SI_interaction_DEGs.csv")
 
 
+#To figure out the number and names of genes that differ and are the same between the different aligned datasets
 
+#remove the prefix parts of the gene names
+rownames(int_lep_caecum) <- gsub("NLEP_|_Nlep|gene-|_Nmacr", "", rownames(int_lep_caecum))
+rownames(int_bry_caecum) <- gsub("NBRY_|_Nbry|gene-|_Nmacr|tig00136204_", "", rownames(int_bry_caecum))
+
+
+#find unique genes in each set
+lep_unique <- data.frame(setdiff(rownames(int_lep_caecum),rownames(int_bry_caecum)))
+bry_uniqe <- data.frame(setdiff(rownames(int_bry_caecum), rownames(int_lep_caecum)))
+
+#find those common to both
+common_genes <- data.frame(intersect(rownames(int_lep_caecum),rownames(int_bry_caecum)))
+
+
+venn <- venn.diagram(x=list(rownames(int_lep_caecum),rownames(int_bry_caecum)), 
+                     category.names=c("lepida", "bryanti"), output=TRUE, filename = NULL)
+
+grid.draw(venn)
+
+write.table(c(lep_unique,bry_uniqe,common_genes), "DE_genes.csv", na="NA")
 
