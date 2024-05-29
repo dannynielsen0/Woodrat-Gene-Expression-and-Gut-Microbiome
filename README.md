@@ -1,5 +1,4 @@
 
-
 ### Reading the htseq count files into R was having an issue related to columns in the counts file and not matching, to fix this, just duplicate the first column (gene name). This code should work recursively within a directory over each tissue type. Substitute lepSecond_counts_files with bryFirst_counts_files to modify those
 
 ```
@@ -129,7 +128,7 @@ htseq-count --format bam \
 
     ####We created a DESeq object using the DESeqDataSetFromHTSeqCount function
 
-    ```
+```
         #This is the command, and we adjust the inputs for each tissue (i.e., foregut, caecum, etc...)
         
             bryFirst_liver_dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,
@@ -143,10 +142,10 @@ htseq-count --format bam \
             pca <- prcomp(t(CEN))
             loadings <- as.data.frame(pca$rotation)
 
-    ```
+```
 
 ### With this, plot PCA
-    ```
+```
             biplot <- factoextra::fviz_pca_ind(pca, repel = TRUE, axes = c(1,2),
                           #select.var = list(contrib = 25), #draw top 25 arrows
                           #select.var = list(name = c("Sult2b1-1", "APOA4_0001", "FADS3_0001","Sult2a3-7")),  #alternative to draw specific substitution loadings
@@ -171,7 +170,7 @@ htseq-count --format bam \
                                 legend.position = "none",  # Move legend to bottom
                                 legend.direction = "vertical")
 
-    ```
+```
 
 ![PCA of Gene Expression in the Caecum](https://github.com/dannynielsen0/Lab-diet-trial-16S-analysis/blob/main/figures/caecum_gene_expression_pca.jpg?raw=true)
 
