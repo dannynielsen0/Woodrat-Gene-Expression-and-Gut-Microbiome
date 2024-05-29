@@ -10,19 +10,19 @@ find lepSecond_counts_files -type f -name '*.tsv' -exec zsh -c '
 ' zsh {} +
 ```
 
-###The annotations (gff files) for both N. lepida and N. bryanti were generated from using Liftoff (Shumate and Salzberg
+### The annotations (gff files) for both N. lepida and N. bryanti were generated from using Liftoff (Shumate and Salzberg
  2021) with the following commands
 
  ```
-    ####For bryanti
+    #For bryanti
 
         liftoff -g Neotoma_macrotis_annotations.gff bry_tig.fasta ../Mac_fus_genomes/Nmacrotis_1.1.fasta -u "unmapped_mac_bry.txt" -f other_features.txt -copies -sc 0.90 -flank 0.1 -o mac_to_bry.gff
 
-    ####For lepida, use the -db flag to call the liftoff database already made above
+    #For lepida, use the -db flag to call the liftoff database already made above
         liftoff -db ../mac_bry/Neotoma_macrotis_annotations.gff_db lep.fasta ../Mac_fus_genomes/Nmacrotis_1.1.fasta -u "unmapped_mac_lep.txt" -f ../mac_bry/other_features.txt -copies -sc 0.90 -flank 0.1 -o          mac_to_lep.gff
-    ```
+ ```
 
-###The RNAseq data were aligned with hisat using the following SLURM script
+### The RNAseq data were aligned with hisat using the following SLURM script
 
 ```
         #!/bin/bash -l
