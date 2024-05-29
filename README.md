@@ -152,14 +152,14 @@ htseq-count --format bam \
                           #select.var = list(name = c("Sult2b1-1", "APOA4_0001", "FADS3_0001","Sult2a3-7")),  #alternative to draw specific substitution loadings
                           labelsize=20,
                           addEllipses = TRUE,
-                          habillage = bry_first_liver_dds$group,
-                          col.ind = bry_first_liver_dds$group,
+                          habillage = bry_first_caecum_dds$group,
+                          col.ind = bry_first_caecum_dds$group,
                           ellipse.level=0.95,
                           palette = c("maroon","pink", "lightgreen", "darkgreen"),
                           geom=c("point"), pointsize = 15,   #change to geom=c("point","text") for sample ID
-                          ind.fill = bry_first_liver_dds$group,
+                          ind.fill = bry_first_caecum_dds$group,
                           invisible = c( "quali"), #remove enlarged symbol for group mean
-                          title = "Liver") +
+                          title = "Caecum") +
                           scale_shape_manual(values=c(18,15,17,16)) + 
                           guides(colour = guide_legend(override.aes = list(size = 10))) +
                           theme(plot.title=element_text(hjust=0.5),
