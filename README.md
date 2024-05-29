@@ -129,24 +129,24 @@ find lepSecond_counts_files -type f -name '*.tsv' -exec zsh -c '
 ### We imported to a DESeq object using the DESeqDataSetFromHTSeqCount function
 
 ```
-        #This is the command, and we adjust the inputs for each tissue (i.e., foregut, caecum, etc...)
+#This is the command, and we adjust the inputs for each tissue (i.e., foregut, caecum, etc...)
         
-            bryFirst_liver_dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,
+  bryFirst_liver_dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,
                                   directory = directory,
                                   design= ~ 0 + group)
 
-        #Then, we performed variance stabalization and scaled and centered the data
+#Then, we performed variance stabalization and scaled and centered the data
 
-            vsd <- vst(bry_first_liver_dds, blind=FALSE)
-            CEN = scale(assay(vsd), center = T, scale = T)
-            pca <- prcomp(t(CEN))
-            loadings <- as.data.frame(pca$rotation)
+  vsd <- vst(bry_first_liver_dds, blind=FALSE)
+  CEN = scale(assay(vsd), center = T, scale = T)
+  pca <- prcomp(t(CEN))
+  loadings <- as.data.frame(pca$rotation)
 
 ```
 
 ### With this, plot PCA
 ```
-            biplot <- factoextra::fviz_pca_ind(pca, repel = TRUE, axes = c(1,2),
+  biplot <- factoextra::fviz_pca_ind(pca, repel = TRUE, axes = c(1,2),
                           #select.var = list(contrib = 25), #draw top 25 arrows
                           #select.var = list(name = c("Sult2b1-1", "APOA4_0001", "FADS3_0001","Sult2a3-7")),  #alternative to draw specific substitution loadings
                           labelsize=20,
