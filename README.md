@@ -127,7 +127,7 @@ htseq-count --format bam \
 
 ### Counts were then imported into R
 
-    #### We created a DESeq object using the DESeqDataSetFromHTSeqCount function
+    ####We created a DESeq object using the DESeqDataSetFromHTSeqCount function
 
     ```
         #This is the command, and we adjust the inputs for each tissue (i.e., foregut, caecum, etc...)
