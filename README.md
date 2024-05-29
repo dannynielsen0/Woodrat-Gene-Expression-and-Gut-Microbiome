@@ -171,7 +171,7 @@ htseq-count --format bam \
                                 legend.position = "none",  # Move legend to bottom
                                 legend.direction = "vertical")
 
-```
+    ```
 
 ![PCA of Gene Expression in the Caecum](https://github.com/dannynielsen0/Lab-diet-trial-16S-analysis/blob/main/figures/caecum_gene_expression_pca.jpg?raw=true)
 
