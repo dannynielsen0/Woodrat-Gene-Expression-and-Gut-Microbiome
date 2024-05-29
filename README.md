@@ -145,10 +145,8 @@ htseq-count --format bam \
 
     ```
 
-##### With this, plot PCA
+### With this, plot PCA
     ```
-        
-
             biplot <- factoextra::fviz_pca_ind(pca, repel = TRUE, axes = c(1,2),
                           #select.var = list(contrib = 25), #draw top 25 arrows
                           #select.var = list(name = c("Sult2b1-1", "APOA4_0001", "FADS3_0001","Sult2a3-7")),  #alternative to draw specific substitution loadings
@@ -174,6 +172,8 @@ htseq-count --format bam \
                                 legend.direction = "vertical")
 
 ```
-                                  
+
+![PCA of Gene Expression in the Caecum](https://github.com/dannynielsen0/Lab-diet-trial-16S-analysis/blob/main/figures/caecum_gene_expression_pca.jpg?raw=true)
+
 
 
