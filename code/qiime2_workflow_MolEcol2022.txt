@@ -7,7 +7,6 @@ conda activate qiime2-2021.8 #activate environment within working dir. that has 
 
 #conda deactivate
 
-
 #step one of qiime
 #import data to qiime
 
