@@ -2,7 +2,10 @@
 
 #clear working environment and set directory
 rm(list=ls())
-setwd("/Volumes/GoogleDrive/My Drive/dissertation/ch. 3/Feeding_trials/Trial_data")
+setwd("/Volumes/MatocqLab/Danny/google_drive/dissertation/ch. 3/Feeding_trials/Trial_data/data")
+
+save.image(file="phenotype_code.RData")
+load("phenotype_code.RData")
 
 #load some libraries
 
@@ -18,6 +21,13 @@ library(ggpubr)
 diet_data <- read.csv("All_trial_data_Wwheel.csv", header=TRUE)
 diet_data$Day_of_trial <- as.factor(diet_data$Day_of_trial)
 
+#load metadata with max dose column
+metadata <- readRDS("data/lab_trial_final_metadata.RDS")
+
+#read in metabolism data
+  metab_data <- read.csv("metabolism_data.csv")
+
+
 #melt the max dose data
 max_dose_long <- melt(diet_data, id=c("Diet_threshold","Woodrat_id", "Diet_type", "Diet_perc", "Species", "Pop", "Trial", "Sex", "WR_bm"), measure="mass.adjusted_dose") #make long format
 colnames(max_dose_long)[c(1,11)] <- c("Dose", "MA_dose") #rename columns
@@ -32,18 +42,26 @@ max_dose_long_sub <- subset(max_dose_long_sub, max_dose_long_sub$Dose == "Max")
 write.table(max_dose_long_sub, "data/MA_maxDose.txt", sep="\t")
 
 #then average over treatment groups
-max_dose_long_sub_ave <- aggregate(Diet_perc~ Woodrat_id + Diet_type + Species, FUN=mean, data=max_dose_long_sub) #get average water intake for each woodrat at each dose
+max_dose_long_sub_ave <- aggregate(MA_dose~ Woodrat_id + Diet_type + Species, FUN=mean, data=max_dose_long_sub) #get average water intake for each woodrat at each dose
 max_dose_long_sub_ave_bm <- aggregate(WR_bm~ Woodrat_id, FUN=mean, data=max_dose_long_sub) #get average body mass for each woodrat
 max_dose_long_sub_ave$WR_bm <- max_dose_long_sub_ave_bm$WR_bm[match(max_dose_long_sub_ave$Woodrat_id, max_dose_long_sub_ave_bm$Woodrat_id)]
 
 #make species_diet variable
 max_dose_long_sub_ave$Sp_diet <- paste(max_dose_long_sub_ave$Species,max_dose_long_sub_ave$Diet_type, sep="_")
 max_dose_long_sub_ave$Sp_diet <- factor(max_dose_long_sub_ave$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
+max_dose_long_sub$Sp_diet <- paste(max_dose_long_sub$Species,max_dose_long_sub$Diet_type, sep="-")
 
 max_dose_long_sub_ave$MA_dose <-max_dose_long_sub_ave$Diet_perc/max_dose_long_sub_ave$WR_bm
 
-max_dose_mod <- aov(MA_dose ~ Sp_diet , data=max_dose_long_sub_ave)
-max_dose_mod_mm <- lmer(MA_dose ~ Species * Diet_type + Pop + (1|Woodrat_id), data=max_dose_long_sub)
+max_dose_mod <- aov(MA_dose ~ Species + Diet_type + Species*Diet_type, 
+                    data=subset(max_dose_long, max_dose_long$Dose=="Max"))
+summary(max_dose_mod)
+
+TukeyHSD(max_dose_mod)
+
+summary(max_dose_mod)
+
+max_dose_mod_mm <- lmer(MA_dose ~ Species * Diet_type + Pop, data=max_dose_long)
 drop1(max_dose_mod_mm, test="Chisq")
 summary(max_dose_mod_mm)
 coef(max_dose_mod_mm)
@@ -57,23 +75,37 @@ TukeyHSD(max_dose_mod, which="Sp_diet")
 max_crap_is <- emmeans(max_dose_mod, ~ Sp_diet)
 max_tukey <- multcomp::cld(max_crap_is, alpha=0.05, Letters=letters)
 
+metadata$sp_diet <- as.factor(metadata$sp_diet)
+levels(metadata$sp_diet) <- c("N. bryanti - FRCA", "N. bryanti - PRFA", "N. lepida - FRCA", "N. lepida - PRFA")
+metadata$sp_diet <- factor(metadata$sp_diet, levels=c("N. lepida - PRFA", "N. lepida - FRCA", "N. bryanti - PRFA", "N. bryanti - FRCA"))
 
 #mass adjusted max dose plot
 
-max_plot <- ggplot(data=max_dose_long_sub_ave, aes(x=Sp_diet , y=MA_dose)) + 
-  geom_boxplot() + theme_bw() + geom_jitter() +
-  theme(axis.text.x = element_text(size = 20, face = "italic")) +
-  theme(axis.text.y = element_text(size = 20),
-        axis.title=element_text(size=20,face="bold")) + 
+max_plot <- ggplot(data=metadata, aes(x=sp_diet , y=max_dose, fill=sp_diet)) + 
+  theme_pubclean() + scale_fill_manual(values = c("maroon","pink", "lightgreen", "darkgreen")) +
+  stat_summary(fun="mean", geom="bar", position=position_dodge(), color="black") +
+  stat_summary(fun.data="mean_se", geom="errorbar",
+               width=0.2, position=position_dodge(0.9)) +
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_blank()) +
+  #theme(axis.text.y = element_text(size = 20),
+   #     axis.title=element_text(size=20,face="bold")) +
   theme(panel.grid.major = element_blank()) + theme(panel.grid = element_blank()) +
   #facet_wrap(~Species) + 
-  stat_summary(fun="mean", geom="point", col="red") +
-  theme(strip.text.x = element_text(size = 24)) + theme(strip.text = element_text(face = "italic"))+
-  xlab("Species/Diet") + ylab("Mass Adjusted Max Dose")
+  #stat_summary(fun="mean", geom="point", col="red") +
+  #theme(strip.text.x = element_text(size = 30)) + 
+  #theme(strip.text.y = element_text(size = 30)) +
+  xlab("") + ylab("Maximum % Dose") +
+  stat_compare_means(aes(group = sp_diet), 
+                     method = "kruskal",   # Choose appropriate method
+                     label = "p.signif",  # This automatically formats p-values
+                     hide.ns = TRUE, label.x = 1.8, size=25,
+                     label.y = c(75)) + theme(text = element_text(size =50))
+
 
 max_plot
 
-ggsave(plot=max_plot, "Lab-diet-trial-16S-analysis/figures/Max_dose.jpg", width = 11, height = 6, device='jpg', dpi=500)
+ggsave(plot=max_plot, "Lab-diet-trial-16S-analysis/figures/Max_dose.jpg", width = 15, height = 15,  device='jpg', dpi=500)
 
 
 #reformat water intake data for plotting
@@ -98,7 +130,7 @@ write.table(water_long, "data/MA_maxWater_txt", sep="\t")
 water_long$Species <- factor(water_long$Species, levels=c("N. lepida", "N. bryanti"))
 water_long$Diet_type <- factor(water_long$Diet_type, levels=c("PRFA", "FRCA"))
 water_long$Sp_diet <- paste(water_long$Species, water_long$Diet_type, sep="_")
-water_long$Sp_diet <- factor(water_long$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
+water_long$Sp_diet <- factor(water_long$Sp_diet, levels=c("N. lepida_PRFA", "N. lepida_FRCA", "N. bryanti_PRFA", "N. bryanti_FRCA"))
 water_long$Sp_diet_dose <- paste(water_long$Species, water_long$Diet_type, water_long$Dose, sep="_")
 
 #conduct statistical analysis for each dietXspecies treatment
@@ -115,17 +147,26 @@ kruskal.test(MA_water~Dose, data=lep_frca) #Kruskal-Wallis chi-squared = 3.9224,
 kruskal.test(MA_water~Dose, data=lep_prfa) #Kruskal-Wallis chi-squared = 0.2, df = 1, p-value = 0.6547; df = 1, p-value = 0.7494; no difference in bry
 
 
-water_plot <- ggplot(data=water_long, aes(x=Dose, y=MA_water)) + geom_boxplot() + 
-  theme_bw() + facet_grid(~ Sp_diet) +
-  stat_summary(fun="mean", geom="point", col="red") +
+water_plot <- ggplot(data=water_long, aes(x=Dose, y=MA_water, fill=Sp_diet)) + #geom_boxplot() +
+  stat_summary(fun="mean", geom="bar", position=position_dodge(), color="black") +
+  stat_summary(fun.data="mean_se", geom="errorbar", aes(group=Dose),
+               width=0.2, position=position_dodge(0.9)) + theme(text = element_text(size =50)) +
+  scale_fill_manual(values = c("maroon","pink", "lightgreen", "darkgreen")) +
+  theme_pubclean() + facet_grid(~ Sp_diet) +   theme(legend.position = "none") +
+  #stat_summary(fun="mean", geom="point", col="red") +
   theme(panel.grid.major = element_blank()) + theme(panel.grid = element_blank()) +
-  theme(axis.text.x = element_text(size = 20)) +
-  theme(axis.text.y = element_text(size = 20),
-        axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
-  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted water/day") + xlab("% Dose")
+  theme(axis.text.x = element_text(size = 50)) +
+  theme(axis.text.y = element_text(size = 50),
+        axis.title=element_text(size=50,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
+  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted water/day") + xlab("")  +
+  stat_compare_means(aes(group = Dose), 
+                     method = "kruskal",   # Choose appropriate method
+                     label = "p.signif",  # This automatically formats p-values
+                     hide.ns = TRUE, label.x=2.1,
+                     label.y = .4, size=25)   # Hide non-significant p-values
 
 #save plot
-ggsave(plot=water_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_water.jpg", width = 12, height = 6, device='jpg', dpi=500)
+ggsave(plot=water_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_water.jpg", width = 15, height = 15, device='jpg', dpi=500)
 
 
 
@@ -146,8 +187,17 @@ food_long$Dose[food_long$Dose=="Chow"] <- "0"
 food_long$Species <- factor(food_long$Species, levels=c("N. lepida", "N. bryanti"))
 food_long$Diet_type <- factor(food_long$Diet_type, levels=c("PRFA", "FRCA"))
 food_long$Sp_diet <- paste(food_long$Species, food_long$Diet_type, sep="_")
-food_long$Sp_diet <- factor(food_long$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
+food_long$Sp_diet <- factor(food_long$Sp_diet, levels=c("N. lepida_PRFA", "N. lepida_FRCA", "N. bryanti_PRFA", "N. bryanti_FRCA"))
 food_long$Sp_diet_dose <- paste(food_long$Species, food_long$Diet_type, food_long$Dose, sep="_")
+
+#rename the sp_diet to specialist_away, et c...
+food_long$Sp_diet <- factor(gsub("N. lepida_PRFA", "Specialist-Home", food_long$Sp_diet))
+food_long$Sp_diet <- factor(gsub("N. lepida_FRCA", "Specialist-Away", food_long$Sp_diet))
+food_long$Sp_diet <- factor(gsub("N. bryanti_FRCA", "Generalist-Home", food_long$Sp_diet))
+food_long$Sp_diet <- factor(gsub("N. bryanti_PRFA", "Generalist-Away", food_long$Sp_diet))
+#reorder these
+food_long$Sp_diet <- factor(food_long$Sp_diet, levels=c("Specialist-Home", "Specialist-Away", "Generalist-Away", "Generalist-Home"))
+
 
 #conduct statistical analysis for each dietXspecies treatment
 shapiro.test(food_long$MA_food) #W = 0.97403, p-value = 0.2473; normal, justify t.test test for each speciesxdiet treatment group
@@ -170,11 +220,10 @@ food_plot <- ggplot(data=food_long, aes(x=Dose, y=MA_food)) + geom_boxplot() +
   theme(axis.text.x = element_text(size = 20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
-  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted food/day") + xlab("% Dose")
+  theme(strip.text = element_text()) + ylab("Mass adjusted food/day") + xlab("% Dose")
 
 #save plot
-ggsave(plot=food_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_food.jpg", width = 12, height = 6, device='jpg', dpi=500)
-
+ggsave(plot=food_plot, "../Lab-diet-trial-16S-analysis/figures/MA_adjusted_food.jpg", width = 12, height = 6, device='jpg', dpi=500)
 
 
 
@@ -199,7 +248,7 @@ write.table(minutes_long, "data/MA_maxMinutes_txt", sep="\t")
 minutes_long$Species <- factor(minutes_long$Species, levels=c("N. lepida", "N. bryanti"))
 minutes_long$Diet_type <- factor(minutes_long$Diet_type, levels=c("PRFA", "FRCA"))
 minutes_long$Sp_diet <- paste(minutes_long$Species, minutes_long$Diet_type, sep="_")
-minutes_long$Sp_diet <- factor(minutes_long$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
+minutes_long$Sp_diet <- factor(minutes_long$Sp_diet, levels=c("N. lepida_PRFA", "N. lepida_FRCA", "N. bryanti_PRFA", "N. bryanti_FRCA"))
 minutes_long$Sp_diet_dose <- paste(minutes_long$Species, minutes_long$Diet_type, minutes_long$Dose, sep="_")
 
 #conduct statistical analysis for each dietXspecies treatment
@@ -215,18 +264,33 @@ kruskal.test(MA_minutes~Dose, data=bry_frca) #Kruskal-Wallis chi-squared = 0.102
 kruskal.test(MA_minutes~Dose, data=lep_frca) #Kruskal-Wallis chi-squared = 2.9755, df = 1, p-value = 0.08453; no difference in bry
 kruskal.test(MA_minutes~Dose, data=lep_prfa) #Kruskal-Wallis chi-squared = 0.6898, df = 1, p-value = 0.4062; no difference in bry
 
+#let's add the max dose column, so we can keep track of which points made it to 100% dose
 
-minutes_plot <- ggplot(data=minutes_long, aes(x=Dose, y=MA_minutes)) + geom_boxplot() + 
-  theme_bw() + facet_grid(~ Sp_diet) +
-  stat_summary(fun="mean", geom="point", col="red") +
+minutes_long$max_dose <- as.factor(metadata$max_dose[match(minutes_long$Woodrat_id, metadata$WR_ID)])
+minutes_long$max_dose <- factor(minutes_long$max_dose, levels=c("30","80","100"))
+
+
+minutes_plot <- ggplot(data=minutes_long, aes(x=Dose, y=MA_minutes, fill=Sp_diet)) + #geom_boxplot() +
+  stat_summary(fun="mean", geom="bar", position=position_dodge(), color="black") +
+  scale_fill_manual(values = c("maroon","pink", "lightgreen", "darkgreen")) +
+  stat_summary(fun.data="mean_se", geom="errorbar", aes(group=Dose),
+               width=0.2, position=position_dodge(0.9)) +
+  theme_pubclean() + facet_wrap(~ Sp_diet, nrow = 1)  +
+  #scale_color_manual(values=c("skyblue", "royalblue", "darkgrey")) +
+  #stat_summary(fun="mean", geom="point", col="red") +
   theme(panel.grid.major = element_blank()) + theme(panel.grid = element_blank()) +
-  theme(axis.text.x = element_text(size = 20)) +
-  theme(axis.text.y = element_text(size = 20),
-        axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
-  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted minutes/day") + xlab("% Dose")
+  theme(axis.text.x = element_text(size = 50)) +
+  theme(axis.text.y = element_text(size = 50),
+        axis.title=element_text(size=50,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
+  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted minutes/day") + xlab("") +
+  stat_compare_means(aes(group = Dose), 
+                     method = "kruskal",   # Choose appropriate method
+                     label = "p.signif",  # This automatically formats p-values
+                     hide.ns = TRUE,  # Adjust these x positions for your Dose categories
+                     label.y = c(3.1))      
 
 #save plot
-ggsave(plot=minutes_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_minutes.jpg", width = 12, height = 6, device='jpg', dpi=500)
+ggsave(plot=minutes_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_minutes.jpg", width = 15, height = 15, device='jpg', dpi=500)
 
 
 #reformat wheel data intake data for plotting
@@ -247,6 +311,15 @@ rotations_long$Diet_type <- factor(rotations_long$Diet_type, levels=c("PRFA", "F
 rotations_long$Sp_diet <- paste(rotations_long$Species, rotations_long$Diet_type, sep="_")
 rotations_long$Sp_diet <- factor(rotations_long$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
 rotations_long$Sp_diet_dose <- paste(rotations_long$Species, rotations_long$Diet_type, rotations_long$Dose, sep="_")
+
+#rename the sp_diet to specialist_away, et c...
+rotations_long$Sp_diet <- factor(gsub("N. lepida_PRFA", "Specialist-Home", rotations_long$Sp_diet))
+rotations_long$Sp_diet <- factor(gsub("N. lepida_FRCA", "Specialist-Away", rotations_long$Sp_diet))
+rotations_long$Sp_diet <- factor(gsub("N. bryanti_FRCA", "Generalist-Home", rotations_long$Sp_diet))
+rotations_long$Sp_diet <- factor(gsub("N. bryanti_PRFA", "Generalist-Away", rotations_long$Sp_diet))
+#reorder these
+rotations_long$Sp_diet <- factor(rotations_long$Sp_diet, levels=c("Specialist-Home", "Specialist-Away", "Generalist-Away", "Generalist-Home"))
+
 
 #conduct statistical analysis for each dietXspecies treatment
 shapiro.test(rotations_long$MA_rotations) #W = 0.91212, p-value = 0.0004735; not normal, justify kruskal.wallis test for each speciesxdiet treatment group
@@ -269,10 +342,10 @@ rotations_plot <- ggplot(data=rotations_long, aes(x=Dose, y=MA_rotations)) + geo
   theme(axis.text.x = element_text(size = 20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
-  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted rotations/day") + xlab("% Dose")
+  theme(strip.text = element_text()) + ylab("Mass adjusted rotations/day") + xlab("% Dose")
 
 #save plot
-ggsave(plot=rotations_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_rotations.jpg", width = 12, height = 6, device='jpg', dpi=500)
+ggsave(plot=rotations_plot, "../Lab-diet-trial-16S-analysis/figures/MA_adjusted_rotations.jpg", width = 12, height = 6, device='jpg', dpi=500)
 
 
 #reformat wheel data intake data for plotting max speed
@@ -293,6 +366,15 @@ speed_long$Diet_type <- factor(speed_long$Diet_type, levels=c("PRFA", "FRCA"))
 speed_long$Sp_diet <- paste(speed_long$Species, speed_long$Diet_type, sep="_")
 speed_long$Sp_diet <- factor(speed_long$Sp_diet, levels=c("N. lepida_PRFA", "N. bryanti_FRCA", "N. lepida_FRCA", "N. bryanti_PRFA"))
 speed_long$Sp_diet_dose <- paste(speed_long$Species, speed_long$Diet_type, speed_long$Dose, sep="_")
+
+rename the sp_diet to specialist_away, et c...
+speed_long$Sp_diet <- factor(gsub("N. lepida_PRFA", "Specialist-Home", speed_long$Sp_diet))
+speed_long$Sp_diet <- factor(gsub("N. lepida_FRCA", "Specialist-Away", speed_long$Sp_diet))
+speed_long$Sp_diet <- factor(gsub("N. bryanti_FRCA", "Generalist-Home", speed_long$Sp_diet))
+speed_long$Sp_diet <- factor(gsub("N. bryanti_PRFA", "Generalist-Away", speed_long$Sp_diet))
+#reorder these
+speed_long$Sp_diet <- factor(speed_long$Sp_diet, levels=c("Specialist-Home", "Specialist-Away", "Generalist-Away", "Generalist-Home"))
+
 
 #conduct statistical analysis for each dietXspecies treatment
 shapiro.test(speed_long$MA_speed) #W = 0.91227, p-value = 0.0004797; not normal, justify kruskal.wallis test for each speciesxdiet treatment group
@@ -315,10 +397,10 @@ speed_plot <- ggplot(data=speed_long, aes(x=Dose, y=MA_speed)) + geom_boxplot() 
   theme(axis.text.x = element_text(size = 20)) +
   theme(axis.text.y = element_text(size = 20),
         axis.title=element_text(size=20,face="bold")) + theme(strip.text.x = element_text(size = 24)) +
-  theme(strip.text = element_text(face = "italic")) + ylab("Mass adjusted max m/s") + xlab("% Dose")
+  theme(strip.text = element_text()) + ylab("Mass adjusted max m/s") + xlab("% Dose")
 
 #save plot
-ggsave(plot=speed_plot, "Lab-diet-trial-16S-analysis/figures/MA_adjusted_speed.jpg", width = 12, height = 6, device='jpg', dpi=500)
+ggsave(plot=speed_plot, "../Lab-diet-trial-16S-analysis/figures/MA_adjusted_speed.jpg", width = 12, height = 6, device='jpg', dpi=500)
 
 
 
