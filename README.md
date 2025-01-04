@@ -1,3 +1,4 @@
+### Below are portions of code used to study host gene expression and gut microbiome composition in response to experimentally manipulated diet in two species of mammalian herbivores. The design included two species and two diet treatments (4 total treatment groups) as well as gene expression sampling across the foregut, small intestine, caecum, and liver, as well as microbiome sampling of the caecum and foregut. Portions of bash scripts used for RNAseq alingment, and reading counting were performed on HPC. Other scripts were used in R for data analysis and visualization. 
 
 ### The annotations (gff files) for both N. lepida and N. bryanti were generated from using Liftoff (Shumate and Salzberg 2021) with the following commands
 
@@ -222,6 +223,26 @@ PD_div_box_plot <- ggplot(data=physeq_C@sam_data, aes(x=physeq_C@sam_data$diet_t
 ![Microbial Richness of Caecum](https://github.com/dannynielsen0/Woodrat-Gene-Expression-and-Gut-Microbiome/blob/main/figures/Faiths_SR.jpg)
 
 
+### Next, we can plot an ordination to visualize beta diversity in the caecum
 
+```
+#plot unweighted unifrac
+
+PCoA_plot_unifrac <- plot_ordination(physeq_RRA, PCoA_unifrac, color = "Species", shape = "Diet_treatment", axes = 1:2)
+
+plot_unifrac <- PCoA_plot_unifrac + geom_point(size = 5) +
+  scale_color_manual(values= c("maroon","forestgreen")) + #facet_wrap(~Species) +
+  scale_shape_manual(values=c(16,2)) + theme_bw() + ggtitle("Unweighted UniFrac") +
+  theme(plot.title = element_text(hjust = 0.5, size = 24)) + 
+  theme(legend.text = element_text(size = 20, face = "italic")) +
+  theme(legend.title = element_text(size=20)) +
+  theme(strip.text.x = element_text(size = 20)) + theme(strip.text = element_text(face = "italic")) +
+  theme(axis.text.x = element_text(size = 20)) +
+  theme(axis.text.y = element_text(size = 20),
+        axis.title=element_text(size=20))
+```
+
+![PCoA of Caecum microbiome](https://github.com/dannynielsen0/Woodrat-Gene-Expression-and-Gut-Microbiome/blob/main/figures/bray_PCoA.jpg)
+)
 
 
