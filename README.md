@@ -174,5 +174,54 @@ find lepSecond_counts_files -type f -name '*.tsv' -exec zsh -c '
 
 ![PCA of Gene Expression in the Caecum](https://github.com/dannynielsen0/Lab-diet-trial-16S-analysis/blob/main/figures/caecum_gene_expression_pca.jpg?raw=true)
 
+## Gut Microbiome
+
+### Here are a few preliminary steps to load Qiime2 artifacts into R (I like to use phyloseq for analysis).
+
+```
+#load in phyloseq object for Caecum data
+
+ physeq <- qza_to_phyloseq(features="qiime_output/table.qza",tree="qiime_output/fasttree-tree-rooted.qza",
+                          taxonomy = "qiime_output/taxonomy.qza", metadata = "qiime_output/C_FG_metadata.txt")
+
+# Remove contaminant ASVs (i.e., chloroplast, mitochondria, etc...)
+
+ physeq<- subset_taxa(physeq, Family != "Mitochondria" & Order != "Chloroplast" & Kingdom != "d__Eukaryota")
+
+#remove singletons
+ physeq <- prune_taxa(taxa_sums(physeq) > 1, physeq)
+ 
+```
+
+### We sampled microbiome in the foregut and hindgut, so we will make separate objects for each dataset and then produce some visualizations
+```
+#make separate for C and FG samples
+physeq_C <- subset_samples(physeq, Gut_region=="Caecum")
+physeq_FG <- subset_samples(physeq, Gut_region=="Foregut")
+
+#calculate Faith's phylogenetic diversity
+
+physeq_C@sam_data$PD <- estimate_pd(physeq_C) #uses the btools package
+physeq_FG@sam_data$PD <- estimate_pd(physeq_FG)#uses the btools package
+
+
+#Then plot using wilcox test for differences in diversity between groups - plot both PD & richness
+PD_div_box_plot <- ggplot(data=physeq_C@sam_data, aes(x=physeq_C@sam_data$diet_treatment,y=physeq_C@sam_data$PD$SR)) +
+  geom_boxplot() + facet_wrap(~physeq_C@sam_data$Species) + geom_jitter() + stat_n_text() + theme_bw() +
+  geom_signif(test = "wilcox.test", y_position = 275, map_signif_level = TRUE, comparisons = list(c("PRFA", "FRCA"))) +
+  ylab("Microbial Richness of Caecum") + xlab("Diet Treatment") +
+  theme(plot.title = element_text(hjust = 0.5, size = 24)) + 
+  theme(legend.text = element_text(size = 20, face = "italic")) +
+  theme(legend.title = element_text(size=20)) +
+  theme(strip.text.x = element_text(size = 20)) + theme(strip.text = element_text(face = "italic")) +
+  theme(axis.text.x = element_text(size = 20)) +
+  theme(axis.text.y = element_text(size = 20),
+        axis.title=element_text(size=20))
+```
+### Microbial Richness in the caecum did not differ between species or among diet treatments
+![Microbial Richness of Caecum](https://github.com/dannynielsen0/Woodrat-Gene-Expression-and-Gut-Microbiome/blob/main/figures/Faiths_SR.jpg)
+
+
+
 
 
