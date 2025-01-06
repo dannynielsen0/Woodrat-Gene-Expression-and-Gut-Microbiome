@@ -1,4 +1,4 @@
-### Below are portions of code used to study host gene expression and gut microbiome composition in response to experimentally manipulated diet in two species of mammalian herbivores. The design included two species and two diet treatments (4 total treatment groups) as well as gene expression sampling across the foregut, small intestine, caecum, and liver, as well as microbiome sampling of the caecum and foregut. Portions of bash scripts used for RNAseq alingment, and reading counting were performed on HPC. Other scripts were used in R for data analysis and visualization. 
+### Below are portions of code used to study host gene expression and gut microbiome composition in response to experimentally manipulated diet in two species of mammalian herbivores. The design included two species and two diet treatments (4 total treatment groups) as well as gene expression sampling across the foregut, small intestine, caecum, and liver, as well as microbiome sampling of the caecum and foregut. Bash scripts for RNAseq alignment and read counting were used to submit jobs via SLURM to HPC. Other scripts were used in R for data analysis and visualization. 
 
 ### The annotations (gff files) for both N. lepida and N. bryanti were generated from using Liftoff (Shumate and Salzberg 2021) with the following commands
 
@@ -132,13 +132,13 @@ find lepSecond_counts_files -type f -name '*.tsv' -exec zsh -c '
 ```
 #This is the command, and we adjust the inputs for each tissue (i.e., foregut, caecum, etc...)
         
-  bryFirst_liver_dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,
+  bryFirst_caecum_dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable,
                                   directory = directory,
                                   design= ~ 0 + group)
 
 #Then, we performed variance stabalization and scaled and centered the data
 
-  vsd <- vst(bry_first_liver_dds, blind=FALSE)
+  vsd <- vst(bry_first_caecum_dds, blind=FALSE)
   CEN = scale(assay(vsd), center = T, scale = T)
   pca <- prcomp(t(CEN))
   loadings <- as.data.frame(pca$rotation)
