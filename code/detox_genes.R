@@ -1,3 +1,10 @@
+#this will summarize the manually annotated detox genes across tissues types 
+rm(list=ls())
+setwd("/Volumes/MatocqLab/Danny/google_drive/dissertation/ch. 3/Feeding_trials/Trial_data/data")
+
+#save and load workspace
+save.image(file="detox_genes.RData")
+load("detox_genes.RData")
 
 #Libraries
 # Load the dplyr package
@@ -6,16 +13,23 @@
   library(tidyr)
   library(ggplot2)
   library(ggpubr)
+  library(pheatmap)
+  library(png)
+  library(grid)
+  library(gridExtra)
+  library(RColorBrewer)
+  library(viridis)
+  library(wesanderson)
+  library(ggtext)
 
-#this will summarize the manually annotated detox genes across tissues types 
-  rm(list=ls())
-  setwd("~/Library/CloudStorage/GoogleDrive-dannynielsen@nevada.unr.edu/My Drive/dissertation/ch. 3/Feeding_trials/Trial_data/data")
 
 #load in trial metadata
   metadata <- readRDS("lab_trial_final_metadata.RDS")
   
 #read in the dataframe of detox genes and numbers of each within lepida and bryanti
-  detox_genes <- read.csv("detox_genes.csv", header=TRUE, colClasses = c("character", "integer", "integer"))
+  detox_genes <- read.csv("detox_genes.csv", header=TRUE, colClasses = c("character", "character", "integer", "integer"))
+  detox_genes$detox_phase <- factor(detox_genes$detox_phase, levels = c("I","II","III"))
+  detox_genes <- detox_genes[order(detox_genes$detox_phase),]
 
 #read in the count data for bry and secondary lep. aligned data
 #these data are in bryFirst_counts_files and lepSecond_counts_files
@@ -50,14 +64,19 @@
 
 #run deseq
   all_bry_tissues_deseq <- DESeq(all_bry_tissues)
+  all_lep_tissues_deseq <- DESeq(all_lep_tissues)
 
 #pull out the counts for each
   bry_all_counts <- all_bry_tissues@assays@data$counts
+  bry_all_counts <- counts(all_bry_tissues_deseq, normalized=TRUE)
+  
   lep_all_counts <- all_lep_tissues@assays@data$counts
+  lep_all_counts <- counts(all_lep_tissues_deseq, normalized=TRUE)
 
 #using grep to filter count data to only our detox genes of interest
 
   detox_pattern <- paste(detox_genes$Gene, collapse="|") #create a list of our gene names to grep out below
+  detox_pattern <- paste0(detox_pattern, "|TST") #add TST gene to the list
   remove_pattern <- paste("Fmod", "-like", "pseudo", sep="|") #pattern matches that need to be removed
   
 #create a detox only dataset for bryanti
@@ -84,11 +103,11 @@
   }
 
 #conslidate the df on the gene subfamily column  
-  bry_detox_genes_conslidated <- aggregate(. ~ Consolidated_Group, data=bry_detox_genes, sum)
-  bry_detox_genes_conslidated <- setNames(data.frame(t(bry_detox_genes_conslidated[,-1])), bry_detox_genes_conslidated[,1]) #transpose
+  bry_detox_genes_consolidated <- aggregate(. ~ Consolidated_Group, data=bry_detox_genes, sum)
+  bry_detox_genes_consolidated <- setNames(data.frame(t(bry_detox_genes_consolidated[,-1])), bry_detox_genes_consolidated[,1]) #transpose
 
 #add a column names aligned and put lep in it
-  bry_detox_genes_conslidated <- bry_detox_genes_conslidated %>%
+  bry_detox_genes_consolidated <- bry_detox_genes_consolidated %>%
     mutate(aligned = "bry") %>%
     select(aligned, everything())
   
@@ -101,17 +120,18 @@
   }
   
 #conslidate the df on the gene subfamily column  
-  lep_detox_genes_conslidated <- aggregate(. ~ Consolidated_Group, data=lep_detox_genes, sum)
-  lep_detox_genes_conslidated <- setNames(data.frame(t(lep_detox_genes_conslidated[,-1])), lep_detox_genes_conslidated[,1]) #transpose
+  lep_detox_genes_consolidated <- aggregate(. ~ Consolidated_Group, data=lep_detox_genes, sum)
+  lep_detox_genes_consolidated <- setNames(data.frame(t(lep_detox_genes_consolidated[,-1])), lep_detox_genes_consolidated[,1]) #transpose
   
 #add a column names aligned and put lep in it
-  lep_detox_genes_conslidated <- lep_detox_genes_conslidated %>%
+  lep_detox_genes_consolidated <- lep_detox_genes_consolidated %>%
     mutate(aligned = "lep") %>%
     select(aligned, everything())
   
 
 #Merge the two dataframes 
-  combined_detox <- rbind(bry_detox_genes_conslidated,lep_detox_genes_conslidated)
+  combined_detox <- rbind(bry_detox_genes_consolidated,lep_detox_genes_consolidated)
+  combined_detox <- bry_detox_genes_consolidated #do for just the bry aligned data
   
 #add columns for WR ID and tissue
   combined_detox <- combined_detox %>%
@@ -130,25 +150,104 @@
   combined_detox$diet_treatment <- metadata$Diet_treatment[match(combined_detox$WR_ID,metadata$WR_ID)]
   
   
-# Melt the data frame to long format
+#Melt the data frame to long format
   melted_data <- reshape2::melt(combined_detox)
+  melted_data <- subset(melted_data, melted_data$aligned=="bry") #subset to only have the bry aligned reads
   
-#filter out a specific gene subfamily = ABCA
+#add phase info for each gene 
+  melted_data$phase <- detox_genes$detox_phase[match(melted_data$variable,detox_genes$Gene)]
+    
 #for loop to create a list that store dataframe for each gene name
   #first, reorder variables for plots and such
+  melted_data$phase <- factor(melted_data$phase, levels=c("I","II","III"))
   melted_data$aligned <- factor(melted_data$aligned, levels=c("lep", "bry")) 
   melted_data$Tissue <- factor(melted_data$Tissue, levels=c("FG","SI", "C", "L"))
   melted_data$Species <- factor(melted_data$Species, levels=c("N. lepida", "N. bryanti"))
   melted_data$diet_treatment <- factor(melted_data$diet_treatment, levels=c("PRFA", "FRCA"))
+  melted_data$treatment_group <- as.factor(paste(melted_data$Species, melted_data$diet_treatment, sep="_"))
   melted_data$value <- as.numeric(melted_data$value)
-  
 
-# Plot the data with a loop through each gene family
+ 
+#add treatmenttype variable that just has specialist or generalist and home and away
+  melted_data$treatmenttype <- melted_df$treatmenttype[match(melted_data$treatment_group, melted_df$C_response)]
+    
+
+  levels(melted_data$Tissue)
+  levels(melted_data$Tissue) <- c("Foregut","Small Intestine", "Caecum", "Liver")
+  levels(melted_data$treatment_group)
+  levels(melted_data$treatment_group) <- c("Generalist-P","Generalist-NP", "Specialist-NP", "Specialist-P")
+  
+  melted_data <- melted_data %>%
+          group_by(Tissue, variable, phase, treatment_group) %>%
+          summarise(mean_value = mean(value))
+
+#generate heatmap with these data
+  pal <- wes_palette("Zissou1", 100, type = "continuous")
+  modified_palette <- pal 
+  modified_palette[1] <- "white"
+  
+  #change the labels to include 'Phase'
+  custom_labels <- function(variable_value) {
+    return(dplyr::recode(variable_value,
+                  'I' = "Phase I",
+                  'II' = "Phase II",
+                  'III' = "Phase III"))}
+  min_value <- min(melted_data$mean_value, na.rm = TRUE)
+  max_value <- max(melted_data$mean_value, na.rm = TRUE)
+  
+  
+#make borders around each facet so the white is shown more, or change the white to grey?
+  heatmap <- ggplot(melted_data, aes(y = treatment_group, x = variable, fill = sqrt(mean_value))) +
+    geom_tile() + theme_pubclean() + facet_grid(Tissue~phase, scales="free", space="free", labeller = as_labeller(custom_labels)) +
+    scale_fill_gradientn(
+      colours = modified_palette,
+      name = "Square Root\nAverage\nRead Count",
+      #na.value = "white",  # Extend color bar to include white for zero
+      #guide = guide_colorbar(frame.colour = "black", frame.linewidth = 1)  # Black border around color bar
+    ) +
+    ggtitle("Detoxification Genes") + theme(plot.title = element_text(hjust = 0.5)) +
+    #scale_fill_gradientn(colors=heat_colors, na.value = NA, name = "Square Root(Average Read Count)") +
+    theme(axis.text.x = element_text(angle = 75, hjust = 1),
+          legend.position = "right", legend.direction = "vertical") +
+    # scale_y_discrete(labels = function(x) {
+    #   sapply(x, function(label) {
+    #     parts <- strsplit(as.character(label), "-", fixed = TRUE)[[1]]
+    #     if (length(parts) > 1) {
+    #       parse(text = sprintf("italic(%s) ~ '-' ~ %s", sQuote(parts[1], FALSE), sQuote(parts[2], FALSE)))
+    #     } else {
+    #       label
+    #     }
+    #   })
+    # }) +
+    theme(panel.border = element_rect(color = "black", fill = NA, size = 2)) +
+    labs(x = "", y = "", fill = "Value") +
+    theme(text = element_text(size = 30),
+          axis.title = element_text(size = 30),
+          axis.text.y = element_text(),  # Ensure y-axis text is formatted to show expressions
+          axis.text = element_text(size = 30),
+          strip.text = element_text(size = 30, face = "bold"))  # Increase facet heading sizes and make them bold
+  
+  heatmap <- ggplot(melted_data, aes(x = reorder(variable, as.numeric(factor(phase))), y = factor(Tissue, levels=rev(levels(Tissue))), fill = sqrt(mean_value))) +
+     geom_tile() + theme_pubclean() + facet_grid(sp_diet~phase, scales="free", space="free", labeller = as_labeller(custom_labels)) +
+    scale_fill_gradientn(colours = modified_palette,name = "Square Root\n(Average Read Count)") + 
+    #scale_fill_gradientn(colors=heat_colors, na.value = NA, name = "Square Root(Average Read Count)") +
+    theme(axis.text.x = element_text(angle = 75, hjust = 1), 
+          legend.position = "right", legend.direction = "vertical") +
+    labs(x = "", y = "", fill = "Value") +
+     theme(text = element_text(size = 30),
+           axis.title = element_text(size = 30),
+           axis.text = element_text(size = 30),
+           strip.text = element_text(size = 30, face = "bold")) # Increase facet heading sizes and make them bold
+  
+  ggsave(plot=heatmap, "../Lab-diet-trial-16S-analysis/figures/detox_genes_sqrt_count_heatmap_v2.pdf", width = 30, height =20 , device='pdf', dpi=700)
+  
+  
+  # Plot the data with a loop through each gene family
   options(scipen=1000)  
   
   ggplot_list <- list()
   
-  # Iterate through gene names
+  # Iterate through gene name
   for (gene in detox_list) {
     # Subset data for each gene
     gene_subset <- melted_data[melted_data$variable == gene, ]
@@ -156,16 +255,16 @@
     # Check if the subset is not empty
     if (nrow(gene_subset) > 0) {
       # Calculate group averages
-      group_averages <- aggregate(value ~ Species + Tissue + diet_treatment, data = gene_subset, FUN = mean)
+      #group_averages <- aggregate(value ~ Tissue + Species + diet_treatment, data = gene_subset, FUN = mean)
       
       # Create ggplot for the current gene
       gg <- ggplot(gene_subset, aes(x = interaction(WR_ID,Species, diet_treatment), y = value, fill=aligned)) +
         # Add dashed line for group average in each facet
-        geom_hline(data = group_averages, aes(yintercept = value, linetype = "Group Average"), 
-                   color = "black", linetype = "dashed", linewidth = 0.4) +
+        #geom_hline(data = group_averages, aes(yintercept = value, linetype = "Group Average"), 
+         #          color = "black", linetype = "dashed", linewidth = 0.4) +
         geom_bar(stat = "identity") + #guides(fill=guide_legend(title="Aligned")) +
         facet_grid(Species ~ Tissue + diet_treatment, scales="free_x", space = "free_x") +
-        labs(title = paste("Stacked Bar Plot for", gene), x = "", y = "Total Reads") +
+        labs(title = paste("Stacked Bar Plot for", gene, "Phase-", unique(gene_subset$phase)), x = "", y = "Total Reads") +
         theme_bw() +
         theme(axis.title.x = element_blank(),
               axis.text.x = element_blank(),
