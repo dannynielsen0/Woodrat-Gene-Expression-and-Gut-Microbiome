@@ -127,7 +127,26 @@ find lepSecond_counts_files -type f -name '*.tsv' -exec zsh -c '
 ' zsh {} +
 ```
 
-### We imported to a DESeq object using the DESeqDataSetFromHTSeqCount function
+### We are interested in detoxification related genes, so we first look at expression of phase I, II, and III detox genes across treatment groups and within different host tissues. Plotting code is provided below - the rest of the code used to produce this is found in the detox_genes.R code 
+
+```
+heatmap <- ggplot(melted_data, aes(x = reorder(variable, as.numeric(factor(phase))), y = factor(Tissue, levels=rev(levels(Tissue))), fill = sqrt(mean_value))) +
+     geom_tile() + theme_pubclean() + facet_grid(sp_diet~phase, scales="free", space="free", labeller = as_labeller(custom_labels)) +
+    scale_fill_gradientn(colours = modified_palette,name = "Square Root\n(Average Read Count)") + 
+    #scale_fill_gradientn(colors=heat_colors, na.value = NA, name = "Square Root(Average Read Count)") +
+    theme(axis.text.x = element_text(angle = 75, hjust = 1), 
+          legend.position = "right", legend.direction = "vertical") +
+    labs(x = "", y = "", fill = "Value") +
+     theme(text = element_text(size = 30),
+           axis.title = element_text(size = 30),
+           axis.text = element_text(size = 30),
+           strip.text = element_text(size = 30, face = "bold")) # Increase facet heading sizes and make them bold
+  ```
+
+![Heatmap of Gene Expression across host tissues](https://github.com/dannynielsen0/Woodrat-Gene-Expression-and-Gut-Microbiome/blob/main/figures/detox_genes_sqrt_count_heatmap_v2.jpg)
+
+
+### We then imported the read count data to a DESeq object using the DESeqDataSetFromHTSeqCount function
 
 ```
 #This is the command, and we adjust the inputs for each tissue (i.e., foregut, caecum, etc...)
